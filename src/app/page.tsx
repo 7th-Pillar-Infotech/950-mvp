@@ -104,68 +104,58 @@ export default function Home() {
         />
 
         <div className="relative max-w-5xl mx-auto text-center z-10">
-          {/* Counter Badge - THE KEY SCARCITY ELEMENT */}
+          {/* BIG FREE CALLOUT - THE HERO */}
           <div
-            className={`inline-flex flex-col items-center mb-8 transition-all duration-700 ${
+            className={`mb-6 transition-all duration-700 ${
+              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
+            }`}
+          >
+            <div className="inline-block relative">
+              <span className="text-6xl md:text-8xl lg:text-9xl font-serif font-bold bg-gradient-to-r from-emerald-400 via-emerald-300 to-teal-400 bg-clip-text text-transparent drop-shadow-2xl">
+                FREE
+              </span>
+              <div className="absolute -top-2 -right-4 md:-right-6">
+                <span className="relative flex h-4 w-4 md:h-5 md:w-5">
+                  <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
+                  <span className="relative inline-flex rounded-full h-4 w-4 md:h-5 md:w-5 bg-emerald-500"></span>
+                </span>
+              </div>
+            </div>
+            <div className="mt-2 text-muted text-sm md:text-base">
+              No credit card • No commitment • No catch
+            </div>
+          </div>
+
+          {/* Spots Counter - Clean minimal design */}
+          <div
+            className={`inline-flex items-center gap-3 mb-10 transition-all duration-700 delay-100 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
             }`}
           >
             <div
-              className={`relative px-6 py-3 rounded-2xl border backdrop-blur-sm ${
+              className={`flex items-center gap-3 px-5 py-2.5 rounded-full border backdrop-blur-sm ${
                 isUrgent
-                  ? "bg-red-500/10 border-red-500/30"
-                  : "bg-amber-500/10 border-amber-500/30"
+                  ? "bg-red-500/10 border-red-500/40"
+                  : "bg-white/5 border-white/10"
               }`}
             >
-              <div className="flex items-center gap-4">
-                <div className="flex items-center gap-2">
-                  <span
-                    className={`text-4xl md:text-5xl font-bold font-serif ${
-                      isUrgent ? "text-red-400" : "text-amber-400"
-                    }`}
-                  >
-                    {spotsRemaining}
-                  </span>
-                  <span className="text-muted text-sm">
-                    of {TOTAL_SPOTS}
-                    <br />
-                    spots left
-                  </span>
-                </div>
-                <div className="w-px h-10 bg-white/10" />
-                <div className="text-left">
-                  <div className="text-xs uppercase tracking-widest text-muted mb-1">Today</div>
-                  <div className="w-24 h-2 bg-white/10 rounded-full overflow-hidden">
-                    <div
-                      className={`h-full rounded-full transition-all duration-500 ${
-                        isUrgent ? "bg-red-500" : "bg-amber-500"
-                      }`}
-                      style={{ width: `${spotPercentage}%` }}
-                    />
-                  </div>
-                </div>
+              <div className="flex items-baseline gap-1.5">
+                <span
+                  className={`text-2xl md:text-3xl font-bold font-serif ${
+                    isUrgent ? "text-red-400" : "text-amber-400"
+                  }`}
+                >
+                  {spotsRemaining}
+                </span>
+                <span className="text-muted text-sm">/ {TOTAL_SPOTS}</span>
               </div>
+              <span className="text-muted">spots left today</span>
               {isUrgent && (
-                <div className="absolute -bottom-6 left-1/2 -translate-x-1/2 whitespace-nowrap text-xs text-red-400 font-medium animate-pulse">
-                  ⚡ Filling fast — claim yours now
-                </div>
+                <span className="text-red-400 text-sm font-medium animate-pulse">
+                  ⚡ Almost gone
+                </span>
               )}
             </div>
-          </div>
-
-          {/* FREE Badge */}
-          <div
-            className={`inline-flex items-center gap-3 px-5 py-2.5 mb-8 bg-emerald-500/10 border border-emerald-500/30 rounded-full transition-all duration-700 delay-100 ${
-              mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-4"
-            }`}
-          >
-            <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-              <span className="relative inline-flex rounded-full h-2 w-2 bg-emerald-500"></span>
-            </span>
-            <span className="text-emerald-400 font-semibold tracking-wide">FREE PROTOTYPE</span>
-            <span className="text-muted">•</span>
-            <span className="text-muted text-sm">No credit card required</span>
           </div>
 
           {/* Main headline */}
@@ -357,20 +347,20 @@ export default function Home() {
                   </div>
                 </div>
 
-                {/* Chat messages */}
+                {/* Chat messages - all left aligned */}
                 <div className="h-80 overflow-y-auto p-6 space-y-4">
                   {chatMessages.map((msg, i) => (
-                    <div
-                      key={i}
-                      className={`flex ${msg.role === "user" ? "justify-end" : "justify-start"}`}
-                    >
+                    <div key={i} className="flex justify-start">
                       <div
-                        className={`max-w-[85%] rounded-2xl px-4 py-3 ${
+                        className={`max-w-[90%] rounded-2xl px-4 py-3 ${
                           msg.role === "user"
-                            ? "bg-amber-500 text-background"
+                            ? "bg-amber-500/20 border border-amber-500/30 text-foreground"
                             : "bg-white/10 text-foreground"
                         }`}
                       >
+                        {msg.role === "user" && (
+                          <div className="text-xs text-amber-400 font-medium mb-1">You</div>
+                        )}
                         <div className="whitespace-pre-wrap text-sm leading-relaxed">{msg.content}</div>
                       </div>
                     </div>
