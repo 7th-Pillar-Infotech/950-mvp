@@ -1,0 +1,42 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 1200 630">
+  <defs>
+    <linearGradient id="bgGrad" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#0a0a0a"/>
+      <stop offset="100%" style="stop-color:#1a1a1a"/>
+    </linearGradient>
+    <linearGradient id="textGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" style="stop-color:#f59e0b"/>
+      <stop offset="100%" style="stop-color:#ea580c"/>
+    </linearGradient>
+  </defs>
+
+  <!-- Background -->
+  <rect width="1200" height="630" fill="url(#bgGrad)"/>
+
+  <!-- Grid pattern -->
+  <g opacity="0.03">
+    <pattern id="grid" width="60" height="60" patternUnits="userSpaceOnUse">
+      <path d="M 60 0 L 0 0 0 60" fill="none" stroke="#f59e0b" stroke-width="1"/>
+    </pattern>
+    <rect width="1200" height="630" fill="url(#grid)"/>
+  </g>
+
+  <!-- Decorative circles -->
+  <circle cx="100" cy="100" r="200" fill="#f59e0b" opacity="0.05"/>
+  <circle cx="1100" cy="530" r="150" fill="#ea580c" opacity="0.05"/>
+
+  <!-- Main price -->
+  <text x="600" y="250" text-anchor="middle" font-family="Georgia, serif" font-size="140" font-weight="bold" fill="url(#textGrad)">$950</text>
+
+  <!-- Tagline -->
+  <text x="600" y="340" text-anchor="middle" font-family="system-ui, sans-serif" font-size="48" fill="#ffffff">MVP</text>
+
+  <!-- Subtitle -->
+  <text x="600" y="420" text-anchor="middle" font-family="Georgia, serif" font-size="36" font-style="italic" fill="#a3a3a3">From Idea to Product</text>
+
+  <!-- Bottom text -->
+  <text x="600" y="520" text-anchor="middle" font-family="system-ui, sans-serif" font-size="24" fill="#737373">Web Apps • AI Chatbots • Voice Agents • Automation</text>
+
+  <!-- 7th Pillar attribution -->
+  <text x="600" y="580" text-anchor="middle" font-family="system-ui, sans-serif" font-size="18" fill="#525252">Built by 7th Pillar</text>
+</svg>

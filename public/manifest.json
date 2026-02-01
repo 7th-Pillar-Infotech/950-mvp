@@ -1,0 +1,17 @@
+{
+  "name": "$950 MVP — From Idea to Product",
+  "short_name": "$950 MVP",
+  "description": "Get a scalable, investor-ready MVP for $950. Web apps, AI chatbots, voice agents, and automation.",
+  "start_url": "/",
+  "display": "standalone",
+  "background_color": "#0a0a0a",
+  "theme_color": "#f59e0b",
+  "icons": [
+    {
+      "src": "/favicon.svg",
+      "sizes": "any",
+      "type": "image/svg+xml",
+      "purpose": "any maskable"
+    }
+  ]
+}

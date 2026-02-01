@@ -1,34 +1,307 @@
 "use client";
 
-import { useState, useEffect } from "react";
+import { useState, useEffect, useRef, useCallback } from "react";
+
+const STORAGE_KEY = 'mvp_submitted';
+const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+
+const DISPOSABLE_EMAIL_DOMAINS = [
+  'tempmail.com', 'temp-mail.org', 'guerrillamail.com', 'guerrillamail.org',
+  'mailinator.com', 'maildrop.cc', 'throwaway.email', 'fakeinbox.com',
+  'trashmail.com', 'tempinbox.com', '10minutemail.com', '10minutemail.net',
+  'minutemail.com', 'dispostable.com', 'mailnesia.com', 'tempail.com',
+  'tempr.email', 'discard.email', 'discardmail.com', 'spamgourmet.com',
+  'mytrashmail.com', 'sharklasers.com', 'guerrillamailblock.com', 'pokemail.net',
+  'spam4.me', 'grr.la', 'mailexpire.com', 'meltmail.com', 'yopmail.com',
+  'yopmail.fr', 'cool.fr.nf', 'jetable.fr.nf', 'nospam.ze.tc', 'nomail.xl.cx',
+  'mega.zik.dj', 'speed.1s.fr', 'courriel.fr.nf', 'moncourrier.fr.nf',
+  'monemail.fr.nf', 'monmail.fr.nf', 'getnada.com', 'tempmailo.com',
+  'emailondeck.com', 'tempmailaddress.com', 'burnermail.io', 'mailsac.com',
+  'inboxkitten.com', 'emailfake.com', 'fakemailgenerator.com', 'mohmal.com',
+  'tempsky.com', 'trashinbox.com', 'dropmail.me', 'instantemailaddress.com',
+  'crazymailing.com', 'throwawaymail.com', 'getairmail.com', 'mailcatch.com',
+  'tmail.ws', 'tmpmail.org', 'tmpmail.net', 'tempmails.net', 'disposablemail.com',
+];
+
+const THINKING_MESSAGES = [
+  "Getting ready...",
+  "Nice to meet you...",
+  "Interesting...",
+  "Understanding your vision...",
+  "Thinking about the product...",
+  "Considering options...",
+  "Mapping out features...",
+  "Almost there...",
+];
 
 export default function MVPPage() {
-  const [formData, setFormData] = useState({
-    name: "",
-    email: "",
-    idea: "",
-    mvpType: "",
-    goal: "",
-  });
-  const [isSubmitting, setIsSubmitting] = useState(false);
-  const [submitted, setSubmitted] = useState(false);
   const [mounted, setMounted] = useState(false);
+  const [started, setStarted] = useState(false);
+  const [leadId, setLeadId] = useState<string | null>(null);
+  const [isComplete, setIsComplete] = useState(false);
+  const [userEmail, setUserEmail] = useState("");
+  const [alreadySubmitted, setAlreadySubmitted] = useState(false);
+  const [waitingForEmailValidation, setWaitingForEmailValidation] = useState(false);
+
+  const [chatMessages, setChatMessages] = useState<Array<{ role: "assistant" | "user"; content: string }>>([]);
+  const [chatInput, setChatInput] = useState("");
+  const [isTyping, setIsTyping] = useState(false);
+  const [streamingText, setStreamingText] = useState("");
+  const [showConfetti, setShowConfetti] = useState(false);
+  const [messageCount, setMessageCount] = useState(0);
+  const chatEndRef = useRef<HTMLDivElement>(null);
+  const inputRef = useRef<HTMLTextAreaElement>(null);
 
   useEffect(() => {
     setMounted(true);
+    const submitted = localStorage.getItem(STORAGE_KEY);
+    if (submitted) {
+      setAlreadySubmitted(true);
+    }
   }, []);
 
-  const handleSubmit = async (e: React.FormEvent) => {
+  useEffect(() => {
+    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
+  }, [chatMessages, streamingText]);
+
+  useEffect(() => {
+    if (started) {
+      document.body.style.overflow = "hidden";
+    } else {
+      document.body.style.overflow = "";
+    }
+    return () => {
+      document.body.style.overflow = "";
+    };
+  }, [started]);
+
+  const startConversation = async () => {
+    setStarted(true);
+    setIsTyping(true);
+
+    try {
+      const res = await fetch('/api/chat/mvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({ messages: [], action: 'start' }),
+      });
+
+      const data = await res.json();
+      setChatMessages([{ role: "assistant", content: data.message }]);
+    } catch {
+      setChatMessages([{
+        role: "assistant",
+        content: "Hey there! 👋 I'm here to help you get started with your $950 MVP.\n\nLet's chat about what you're looking to build. **What's your name?**"
+      }]);
+    }
+    setIsTyping(false);
+  };
+
+  const sendMessage = useCallback(async (input: string) => {
+    const trimmedInput = input.trim();
+    if (!trimmedInput || isTyping || waitingForEmailValidation) return;
+
+    const userMessageCount = chatMessages.filter(m => m.role === "user").length;
+    const isEmailEntry = userMessageCount === 1 && trimmedInput.includes('@');
+
+    if (isEmailEntry) {
+      if (!EMAIL_REGEX.test(trimmedInput)) {
+        setChatMessages([
+          ...chatMessages,
+          { role: "user", content: trimmedInput },
+          { role: "assistant", content: "Hmm, that doesn't look like a valid email address. Could you double-check it?\n\n**What's your email?**" }
+        ]);
+        return;
+      }
+
+      const emailDomain = trimmedInput.toLowerCase().split('@')[1];
+      if (DISPOSABLE_EMAIL_DOMAINS.includes(emailDomain)) {
+        setChatMessages([
+          ...chatMessages,
+          { role: "user", content: trimmedInput },
+          { role: "assistant", content: "We don't accept temporary or disposable email addresses. Please use your real email so we can follow up with you! 📧\n\n**What's your email?**" }
+        ]);
+        return;
+      }
+    }
+
+    const newMessages = [...chatMessages, { role: "user" as const, content: trimmedInput }];
+    setChatMessages(newMessages);
+    setChatInput("");
+    setIsTyping(true);
+    setStreamingText("");
+    setMessageCount(prev => prev + 1);
+
+    try {
+      const res = await fetch('/api/chat/mvp', {
+        method: 'POST',
+        headers: { 'Content-Type': 'application/json' },
+        body: JSON.stringify({
+          messages: newMessages,
+          leadId,
+        }),
+      });
+
+      // Handle rate limit or ban errors
+      if (res.status === 429 || res.status === 403) {
+        await handleApiError(res, newMessages);
+        setStreamingText("");
+        setIsTyping(false);
+        return;
+      }
+
+      if (!res.body) throw new Error('No response body');
+
+      const reader = res.body.getReader();
+      const decoder = new TextDecoder();
+      let fullText = '';
+
+      while (true) {
+        const { done, value } = await reader.read();
+        if (done) break;
+
+        const chunk = decoder.decode(value);
+        const lines = chunk.split('\n');
+
+        for (const line of lines) {
+          if (line.startsWith('data: ')) {
+            try {
+              const data = JSON.parse(line.slice(6));
+
+              if (data.type === 'text') {
+                fullText += data.content;
+                setStreamingText(fullText);
+              } else if (data.type === 'message_done') {
+                setChatMessages([...newMessages, { role: "assistant", content: fullText }]);
+                setStreamingText("");
+                setIsTyping(false);
+                setTimeout(() => inputRef.current?.focus(), 50);
+              } else if (data.type === 'done') {
+                if (data.leadCreated && data.leadId) {
+                  setLeadId(data.leadId);
+                }
+
+                if (data.email) {
+                  setUserEmail(data.email);
+                }
+
+                if (data.isComplete) {
+                  setIsComplete(true);
+                  setShowConfetti(true);
+                  setTimeout(() => setShowConfetti(false), 3000);
+                  localStorage.setItem(STORAGE_KEY, 'true');
+                  setAlreadySubmitted(true);
+                }
+              } else if (data.type === 'error') {
+                setChatMessages([
+                  ...newMessages,
+                  { role: "assistant", content: "Sorry, I had a hiccup. Could you try that again?" }
+                ]);
+                setStreamingText("");
+              }
+            } catch {
+              // Ignore parse errors
+            }
+          }
+        }
+      }
+    } catch (err) {
+      console.error('Stream error:', err);
+      setChatMessages([
+        ...newMessages,
+        { role: "assistant", content: "Sorry, something went wrong. Please try again." }
+      ]);
+      setStreamingText("");
+      setIsTyping(false);
+    }
+  }, [chatMessages, isTyping, waitingForEmailValidation, leadId]);
+
+  // Handle rate limit/ban errors
+  const handleApiError = async (res: Response, newMessages: Array<{ role: "assistant" | "user"; content: string }>) => {
+    if (res.status === 429) {
+      const data = await res.json();
+      setChatMessages([
+        ...newMessages,
+        { role: "assistant", content: `Whoa, slow down! ${data.error || "Too many messages too quickly."} Please wait a moment before trying again.` }
+      ]);
+      return true;
+    }
+    if (res.status === 403) {
+      const data = await res.json();
+      setChatMessages([
+        ...newMessages,
+        { role: "assistant", content: data.error || "You have been temporarily blocked. Please try again later." }
+      ]);
+      return true;
+    }
+    return false;
+  };
+
+  const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
-    setIsSubmitting(true);
-    await new Promise((resolve) => setTimeout(resolve, 1500));
-    setSubmitted(true);
-    setIsSubmitting(false);
+    sendMessage(chatInput);
+  };
+
+  const handleQuickReply = (num: number) => {
+    sendMessage(num.toString());
+  };
+
+  const getNumberedOptions = () => {
+    if (chatMessages.length === 0) return null;
+    const lastAssistant = chatMessages.filter(m => m.role === "assistant").pop();
+    if (!lastAssistant) return null;
+
+    const matches = lastAssistant.content.match(/^[1-5]\.\s+.+$/gm);
+    if (matches && matches.length >= 2) {
+      return matches.map((m, i) => ({
+        num: i + 1,
+        text: m.replace(/^[1-5]\.\s+/, '').trim()
+      }));
+    }
+    return null;
+  };
+
+  const numberedOptions = getNumberedOptions();
+  const thinkingMessage = THINKING_MESSAGES[Math.min(messageCount, THINKING_MESSAGES.length - 1)];
+
+  const getUserInitial = () => {
+    const firstUserMsg = chatMessages.find(m => m.role === "user");
+    if (firstUserMsg && chatMessages.indexOf(firstUserMsg) === 1) {
+      return firstUserMsg.content.trim()[0]?.toUpperCase() || "U";
+    }
+    return "U";
+  };
+
+  const renderText = (text: string) => {
+    return text
+      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-amber-400 hover:text-amber-300">$1</a>');
   };
 
   return (
     <main className="min-h-screen overflow-x-hidden">
-      {/* Header */}
+      {/* Confetti */}
+      {showConfetti && (
+        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
+          {[...Array(50)].map((_, i) => (
+            <div
+              key={i}
+              className="absolute w-3 h-3 animate-confetti"
+              style={{
+                left: `${Math.random() * 100}%`,
+                top: `-5%`,
+                backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'][Math.floor(Math.random() * 5)],
+                animationDelay: `${Math.random() * 2}s`,
+                animationDuration: `${2 + Math.random() * 2}s`,
+                transform: `rotate(${Math.random() * 360}deg)`,
+              }}
+            />
+          ))}
+        </div>
+      )}
+
+      {/* Header - only show when not in chat */}
+      {!started && (
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Logo */}
@@ -41,9 +314,6 @@ export default function MVPPage() {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <a href="#submit" className="text-sm text-muted hover:text-foreground transition-colors">
-              Get Started
-            </a>
             <a
               href="https://7thpillar.com"
               target="_blank"
@@ -52,12 +322,12 @@ export default function MVPPage() {
             >
               Our Agency
             </a>
-            <a
-              href="/free-prototype"
-              className="text-sm font-medium px-4 py-2 bg-emerald-500/10 border border-emerald-500/30 text-emerald-400 rounded-lg hover:bg-emerald-500/20 transition-colors"
+            <button
+              onClick={startConversation}
+              className="text-sm font-medium px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background rounded-lg transition-all shadow-md shadow-amber-500/20"
             >
-              Free Prototype
-            </a>
+              Get Started
+            </button>
           </nav>
 
           {/* Mobile menu button */}
@@ -68,7 +338,10 @@ export default function MVPPage() {
           </button>
         </div>
       </header>
+      )}
 
+      {!started ? (
+      <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center px-6 py-20 pt-24 overflow-hidden">
         {/* Animated gradient background */}
@@ -146,21 +419,38 @@ export default function MVPPage() {
 
           {/* CTA */}
           <div className={`transition-all duration-700 delay-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
-            <a
-              href="#submit"
-              className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
-            >
-              <span className="relative z-10">Submit Your Idea — $950</span>
-              <svg
-                className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-2"
-                fill="none"
-                stroke="currentColor"
-                viewBox="0 0 24 24"
+            {alreadySubmitted ? (
+              <div className="inline-flex flex-col items-center gap-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-8 py-6">
+                <div className="flex items-center gap-3 text-emerald-400">
+                  <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                  <span className="font-medium">You&apos;ve already submitted a request!</span>
+                </div>
+                <p className="text-muted text-sm text-center max-w-sm">
+                  We&apos;re reviewing your submission. Check your email for updates.
+                </p>
+              </div>
+            ) : (
+              <button
+                onClick={startConversation}
+                className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
               >
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-              <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
-            </a>
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+                </svg>
+                <span className="relative z-10">Start Chatting — $950</span>
+                <svg
+                  className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-2"
+                  fill="none"
+                  stroke="currentColor"
+                  viewBox="0 0 24 24"
+                >
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+                <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
+              </button>
+            )}
             <p className="mt-5 text-sm text-muted">
               Tell us what you&apos;re building. We&apos;ll reply within <span className="text-amber-500 font-medium">12 hours</span>.
             </p>
@@ -448,180 +738,82 @@ export default function MVPPage() {
 
           <div className="text-center">
             <p className="text-muted text-lg mb-6">Stop letting good ideas die in your backlog.</p>
-            <a
-              href="#submit"
-              className="group inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-8 py-4 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
-            >
-              <span>Revive Your Project — $950</span>
-              <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </a>
+            {!alreadySubmitted && (
+              <button
+                onClick={startConversation}
+                className="group inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-8 py-4 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
+              >
+                <span>Revive Your Project — $950</span>
+                <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </button>
+            )}
           </div>
         </div>
       </section>
 
-      {/* Form Section */}
+      {/* CTA Section */}
       <section id="submit" className="relative px-6 py-32">
         {/* Background glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-2xl mx-auto">
-          <div className="text-center mb-14">
-            <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
-              Get Started
+        <div className="relative max-w-2xl mx-auto text-center">
+          <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
+            Get Started
+          </span>
+          <h2 className="font-serif text-4xl md:text-5xl mb-4">
+            Ready to Build?{" "}
+            <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+              Let&apos;s Chat.
             </span>
-            <h2 className="font-serif text-4xl md:text-5xl mb-4">
-              Ready to Build?{" "}
-              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Tell Us Your Idea.
-              </span>
-            </h2>
-            <p className="text-muted text-lg">
-              No calls. No lengthy proposals. Just tell us what you&apos;re thinking, and we&apos;ll reply within 12 hours.
-            </p>
-          </div>
+          </h2>
+          <p className="text-muted text-lg mb-10">
+            No forms. No lengthy proposals. Just a quick conversation about your idea.
+            <br />We&apos;ll reply within <span className="text-amber-500 font-medium">12 hours</span>.
+          </p>
 
-          {submitted ? (
-            <div className="text-center py-20 bg-gradient-to-br from-amber-500/10 to-orange-500/10 border border-amber-500/30 rounded-2xl">
-              <div className="w-20 h-20 mx-auto mb-8 flex items-center justify-center bg-amber-500/20 border-2 border-amber-500 rounded-full text-amber-500">
-                <svg className="w-10 h-10" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          {alreadySubmitted ? (
+            <div className="inline-flex flex-col items-center gap-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-8 py-6">
+              <div className="flex items-center gap-3 text-emerald-400">
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
                 </svg>
+                <span className="font-medium">You&apos;ve already submitted a request!</span>
               </div>
-              <h3 className="font-serif text-3xl mb-4">Got it. We&apos;ll be in touch.</h3>
-              <p className="text-muted text-lg">
-                Expect a reply within 12 hours with a few clarifying questions.
+              <p className="text-muted text-sm text-center max-w-sm">
+                We&apos;re reviewing your submission. Check your email for updates within 12 hours.
               </p>
             </div>
           ) : (
-            <form onSubmit={handleSubmit} className="space-y-6 bg-white/[0.02] backdrop-blur-sm border border-white/10 rounded-2xl p-8 md:p-10">
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="name" className="block text-sm font-medium mb-2 text-muted">
-                    Your Name
-                  </label>
-                  <input
-                    type="text"
-                    id="name"
-                    required
-                    value={formData.name}
-                    onChange={(e) => setFormData({ ...formData, name: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3.5 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all placeholder:text-muted/50"
-                    placeholder="Jane Smith"
-                  />
-                </div>
-                <div>
-                  <label htmlFor="email" className="block text-sm font-medium mb-2 text-muted">
-                    Email
-                  </label>
-                  <input
-                    type="email"
-                    id="email"
-                    required
-                    value={formData.email}
-                    onChange={(e) => setFormData({ ...formData, email: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3.5 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all placeholder:text-muted/50"
-                    placeholder="jane@startup.com"
-                  />
-                </div>
-              </div>
-
-              <div>
-                <label htmlFor="idea" className="block text-sm font-medium mb-2 text-muted">
-                  What&apos;s your idea?
-                </label>
-                <textarea
-                  id="idea"
-                  required
-                  rows={4}
-                  value={formData.idea}
-                  onChange={(e) => setFormData({ ...formData, idea: e.target.value })}
-                  className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3.5 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all resize-none placeholder:text-muted/50"
-                  placeholder="Describe what you want to build in a few sentences. Don't worry about technical details — that's our job."
-                />
-              </div>
-
-              <div className="grid md:grid-cols-2 gap-6">
-                <div>
-                  <label htmlFor="mvpType" className="block text-sm font-medium mb-2 text-muted">
-                    What type of MVP?
-                  </label>
-                  <select
-                    id="mvpType"
-                    required
-                    value={formData.mvpType}
-                    onChange={(e) => setFormData({ ...formData, mvpType: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3.5 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="">Select one...</option>
-                    <option value="web">Web App</option>
-                    <option value="chatbot">AI Chatbot</option>
-                    <option value="voice">Voice Agent</option>
-                    <option value="automation">Content Automation</option>
-                    <option value="not-sure">Not Sure</option>
-                  </select>
-                </div>
-                <div>
-                  <label htmlFor="goal" className="block text-sm font-medium mb-2 text-muted">
-                    What&apos;s the goal?
-                  </label>
-                  <select
-                    id="goal"
-                    required
-                    value={formData.goal}
-                    onChange={(e) => setFormData({ ...formData, goal: e.target.value })}
-                    className="w-full bg-white/5 border border-white/10 rounded-lg px-4 py-3.5 focus:outline-none focus:border-amber-500/50 focus:bg-white/10 transition-all appearance-none cursor-pointer"
-                  >
-                    <option value="">Select one...</option>
-                    <option value="validate">Validate an idea</option>
-                    <option value="demo">Demo for investors</option>
-                    <option value="automate">Automate something</option>
-                    <option value="side-project">Launch a side project</option>
-                    <option value="other">Other</option>
-                  </select>
-                </div>
-              </div>
-
-              <button
-                type="submit"
-                disabled={isSubmitting}
-                className="w-full bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-background font-semibold rounded-lg px-8 py-4 text-lg transition-all duration-300 flex items-center justify-center gap-3 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30"
-              >
-                {isSubmitting ? (
-                  <>
-                    <svg className="animate-spin w-5 h-5" fill="none" viewBox="0 0 24 24">
-                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
-                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
-                    </svg>
-                    Submitting...
-                  </>
-                ) : (
-                  <>
-                    Submit — $950 to Start
-                    <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                    </svg>
-                  </>
-                )}
-              </button>
-
-              <div className="flex flex-wrap justify-center gap-6 pt-2 text-sm text-muted">
-                <span className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  Reply within 12 hours
-                </span>
-                <span className="flex items-center gap-2">
-                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  No commitment until you say go
-                </span>
-              </div>
-            </form>
+            <button
+              onClick={startConversation}
+              className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
+            >
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
+              </svg>
+              <span>Start Chatting — $950</span>
+              <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
           )}
+
+          <div className="flex flex-wrap justify-center gap-6 mt-8 text-sm text-muted">
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              Reply within 12 hours
+            </span>
+            <span className="flex items-center gap-2">
+              <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+              </svg>
+              No commitment until you say go
+            </span>
+          </div>
         </div>
       </section>
 
@@ -697,6 +889,202 @@ export default function MVPPage() {
           </div>
         </div>
       </footer>
+      </>
+      ) : (
+        /* Full-screen chat */
+        <div className="fixed inset-0 z-50 flex flex-col bg-background">
+          {/* Chat header */}
+          <div className="px-6 py-4 border-b border-white/10 flex-shrink-0 bg-card">
+            <div className="max-w-3xl mx-auto flex items-center justify-between">
+              <div className="flex items-center gap-3">
+                <button
+                  onClick={() => {
+                    setStarted(false);
+                    setChatMessages([]);
+                    setStreamingText("");
+                    setIsTyping(false);
+                    setMessageCount(0);
+                  }}
+                  className="p-2 -ml-2 text-muted hover:text-foreground hover:bg-white/5 rounded-lg transition-colors"
+                  title="Back to home"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
+                  </svg>
+                </button>
+                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-background font-bold shadow-lg shadow-amber-500/30">
+                  AI
+                </div>
+                <div>
+                  <div className="font-medium">MVP Consultant</div>
+                  <div className="text-xs text-emerald-400 flex items-center gap-1">
+                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
+                    Online
+                  </div>
+                </div>
+              </div>
+              {/* Price indicator */}
+              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 text-amber-400">
+                <span className="font-serif font-bold text-lg">$950</span>
+                <span className="text-muted text-sm">flat rate</span>
+              </div>
+            </div>
+          </div>
+
+          {/* Chat messages */}
+          <div className="flex-1 overflow-y-auto p-5 md:p-8">
+            <div className="max-w-3xl mx-auto space-y-4">
+              {chatMessages.map((msg, i) => (
+                <div key={i} className="flex gap-3 items-start">
+                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${
+                    msg.role === "user"
+                      ? "bg-amber-500/30 text-amber-400 border border-amber-500/50"
+                      : "bg-gradient-to-br from-amber-500 to-orange-500 text-background"
+                  }`}>
+                    {msg.role === "user" ? getUserInitial() : "AI"}
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-muted mb-1 font-medium">
+                      {msg.role === "user" ? "You" : "MVP Consultant"}
+                    </div>
+                    <div className={`rounded-2xl rounded-tl-sm px-4 py-3 ${
+                      msg.role === "user"
+                        ? "bg-amber-500/15 border border-amber-500/30"
+                        : "bg-white/[0.08] border border-white/10"
+                    }`}>
+                      <div
+                        className="whitespace-pre-wrap text-sm leading-relaxed prose prose-invert prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: renderText(msg.content) }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              ))}
+
+              {/* Streaming text */}
+              {streamingText && (
+                <div className="flex gap-3 items-start animate-fade-in">
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold bg-gradient-to-br from-amber-500 to-orange-500 text-background">
+                    AI
+                  </div>
+                  <div className="flex-1 min-w-0">
+                    <div className="text-xs text-muted mb-1 font-medium">MVP Consultant</div>
+                    <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-white/[0.08] border border-white/10">
+                      <div
+                        className="whitespace-pre-wrap text-sm leading-relaxed prose prose-invert prose-sm max-w-none"
+                        dangerouslySetInnerHTML={{ __html: renderText(streamingText) }}
+                      />
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Typing indicator */}
+              {isTyping && !streamingText && (
+                <div className="flex gap-3 items-start animate-fade-in">
+                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold bg-gradient-to-br from-amber-500 to-orange-500 text-background">
+                    AI
+                  </div>
+                  <div className="flex-1">
+                    <div className="text-xs text-muted mb-1 font-medium">MVP Consultant</div>
+                    <div className="bg-white/[0.08] border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 inline-flex items-center gap-3">
+                      <div className="flex gap-1">
+                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" />
+                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: "0.15s" }} />
+                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: "0.3s" }} />
+                      </div>
+                      <span className="text-sm text-muted italic">{thinkingMessage}</span>
+                    </div>
+                  </div>
+                </div>
+              )}
+
+              {/* Success state */}
+              {isComplete && !isTyping && (
+                <div className="flex justify-center py-8 animate-fade-in">
+                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center max-w-md">
+                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full text-white shadow-xl shadow-emerald-500/40">
+                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
+                      </svg>
+                    </div>
+                    <h3 className="font-serif text-2xl mb-2">Got it!</h3>
+                    <p className="text-muted text-sm mb-4">
+                      We&apos;ll review your requirements and get back to you at <span className="text-foreground font-medium">{userEmail}</span> within 12 hours.
+                    </p>
+                    <a
+                      href="/free-prototype"
+                      className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm font-medium"
+                    >
+                      Or try our Free Prototype
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                      </svg>
+                    </a>
+                  </div>
+                </div>
+              )}
+
+              <div ref={chatEndRef} />
+            </div>
+          </div>
+
+          {/* Quick reply buttons */}
+          {numberedOptions && !isTyping && !isComplete && (
+            <div className="px-4 md:px-6 pb-2 flex-shrink-0">
+              <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
+                {numberedOptions.map((opt) => (
+                  <button
+                    key={opt.num}
+                    onClick={() => handleQuickReply(opt.num)}
+                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:bg-amber-500/10 hover:border-amber-500/30 transition-all text-sm"
+                  >
+                    <span className="w-6 h-6 flex items-center justify-center bg-amber-500/20 text-amber-400 rounded-full text-xs font-bold">
+                      {opt.num}
+                    </span>
+                    <span className="text-muted">{opt.text}</span>
+                  </button>
+                ))}
+              </div>
+            </div>
+          )}
+
+          {/* Chat input */}
+          {!isComplete && (
+            <form onSubmit={handleSubmit} className="p-4 md:p-6 border-t border-white/10 bg-card flex-shrink-0">
+              <div className="max-w-3xl mx-auto flex gap-3">
+                <textarea
+                  ref={inputRef}
+                  value={chatInput}
+                  onChange={(e) => setChatInput(e.target.value)}
+                  onKeyDown={(e) => {
+                    if (e.key === 'Enter' && !e.shiftKey) {
+                      e.preventDefault();
+                      if (chatInput.trim() && !isTyping) {
+                        sendMessage(chatInput);
+                      }
+                    }
+                  }}
+                  placeholder={numberedOptions ? "Or type your answer..." : "Type your message..."}
+                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all placeholder:text-muted/50 resize-none min-h-[48px] max-h-[120px]"
+                  autoFocus
+                  disabled={isTyping}
+                  rows={1}
+                />
+                <button
+                  type="submit"
+                  disabled={!chatInput.trim() || isTyping}
+                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-background px-5 rounded-xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center self-end h-[48px]"
+                >
+                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
+                  </svg>
+                </button>
+              </div>
+            </form>
+          )}
+        </div>
+      )}
     </main>
   );
 }
