@@ -1,13 +1,30 @@
 @import "tailwindcss";
+@import "tw-animate-css";
+
+@custom-variant dark (&:is(.dark *));
 
 :root {
+  /* Original dark theme as default */
   --background: #0a0a0a;
   --foreground: #f5f2eb;
   --accent: #f59e0b;
   --accent-hover: #fbbf24;
   --muted: #d4d4d4;
+  --muted-foreground: #a3a3a3;
   --card: #141414;
+  --card-foreground: #f5f2eb;
   --card-border: #262626;
+  --popover: #141414;
+  --popover-foreground: #f5f2eb;
+  --primary: #f59e0b;
+  --primary-foreground: #0a0a0a;
+  --secondary: #262626;
+  --secondary-foreground: #f5f2eb;
+  --destructive: #ef4444;
+  --border: #262626;
+  --input: #262626;
+  --ring: #f59e0b;
+  --radius: 0.625rem;
 }
 
 @theme inline {
@@ -16,10 +33,27 @@
   --color-accent: var(--accent);
   --color-accent-hover: var(--accent-hover);
   --color-muted: var(--muted);
+  --color-muted-foreground: var(--muted-foreground);
   --color-card: var(--card);
+  --color-card-foreground: var(--card-foreground);
   --color-card-border: var(--card-border);
+  --color-popover: var(--popover);
+  --color-popover-foreground: var(--popover-foreground);
+  --color-primary: var(--primary);
+  --color-primary-foreground: var(--primary-foreground);
+  --color-secondary: var(--secondary);
+  --color-secondary-foreground: var(--secondary-foreground);
+  --color-destructive: var(--destructive);
+  --color-border: var(--border);
+  --color-input: var(--input);
+  --color-ring: var(--ring);
   --font-sans: var(--font-dm-sans), ui-sans-serif, system-ui, sans-serif;
   --font-serif: var(--font-instrument-serif), ui-serif, Georgia, serif;
+  --radius-sm: calc(var(--radius) - 4px);
+  --radius-md: calc(var(--radius) - 2px);
+  --radius-lg: var(--radius);
+  --radius-xl: calc(var(--radius) + 4px);
+  --radius-2xl: calc(var(--radius) + 8px);
 }
 
 * {
@@ -217,4 +251,26 @@ body::before {
 /* Initially hidden for animation */
 .animate-on-load {
   opacity: 0;
+}
+
+/* Confetti animation */
+@keyframes confetti {
+  0% {
+    transform: translateY(0) rotate(0deg);
+    opacity: 1;
+  }
+  100% {
+    transform: translateY(100vh) rotate(720deg);
+    opacity: 0;
+  }
+}
+
+.animate-confetti {
+  animation: confetti linear forwards;
+}
+
+@layer base {
+  * {
+    @apply border-border;
+  }
 }
