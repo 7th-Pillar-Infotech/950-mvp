@@ -315,6 +315,13 @@ export default function MVPPage() {
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-8">
             <a
+              href="/free-prototype"
+              className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2"
+            >
+              <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-emerald-500/20 border border-emerald-500/30 rounded">Free</span>
+              Get a Prototype
+            </a>
+            <a
               href="https://7thpillar.com"
               target="_blank"
               rel="noopener noreferrer"
