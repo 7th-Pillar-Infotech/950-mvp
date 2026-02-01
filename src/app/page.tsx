@@ -49,6 +49,7 @@ export default function MVPPage() {
   const [streamingText, setStreamingText] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -338,12 +339,55 @@ export default function MVPPage() {
           </nav>
 
           {/* Mobile menu button */}
-          <button className="md:hidden p-2 text-muted hover:text-foreground transition-colors">
-            <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-              <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-            </svg>
+          <button
+            onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+            className="md:hidden p-2 text-muted hover:text-foreground transition-colors"
+          >
+            {mobileMenuOpen ? (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            ) : (
+              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+              </svg>
+            )}
           </button>
         </div>
+
+        {/* Mobile menu dropdown */}
+        {mobileMenuOpen && (
+          <div className="md:hidden border-t border-white/10 bg-background/95 backdrop-blur-md">
+            <nav className="flex flex-col p-4 space-y-4">
+              <a
+                href="/free-prototype"
+                className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2 py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-emerald-500/20 border border-emerald-500/30 rounded">Free</span>
+                Get a Prototype
+              </a>
+              <a
+                href="https://7thpillar.com"
+                target="_blank"
+                rel="noopener noreferrer"
+                className="text-sm text-muted hover:text-foreground transition-colors py-2"
+                onClick={() => setMobileMenuOpen(false)}
+              >
+                Our Agency
+              </a>
+              <button
+                onClick={() => {
+                  setMobileMenuOpen(false);
+                  startConversation();
+                }}
+                className="text-sm font-medium px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background rounded-lg transition-all shadow-md shadow-amber-500/20 w-full"
+              >
+                Get Started
+              </button>
+            </nav>
+          </div>
+        )}
       </header>
       )}
 

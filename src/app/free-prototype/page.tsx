@@ -58,6 +58,7 @@ export default function FreePrototype() {
   const [streamingText, setStreamingText] = useState("");
   const [showConfetti, setShowConfetti] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
+  const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
@@ -402,12 +403,59 @@ export default function FreePrototype() {
             </nav>
 
             {/* Mobile menu button */}
-            <button className="md:hidden p-2 text-muted hover:text-foreground transition-colors">
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
-              </svg>
+            <button
+              onClick={() => setMobileMenuOpen(!mobileMenuOpen)}
+              className="md:hidden p-2 text-muted hover:text-foreground transition-colors"
+            >
+              {mobileMenuOpen ? (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                </svg>
+              ) : (
+                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M4 6h16M4 12h16M4 18h16" />
+                </svg>
+              )}
             </button>
           </div>
+
+          {/* Mobile menu dropdown */}
+          {mobileMenuOpen && (
+            <div className="md:hidden border-t border-white/10 bg-background/95 backdrop-blur-md">
+              <nav className="flex flex-col p-4 space-y-4">
+                <a
+                  href="#how-it-works"
+                  className="text-sm text-muted hover:text-foreground transition-colors py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  How It Works
+                </a>
+                <a
+                  href="#showcase"
+                  className="text-sm text-muted hover:text-foreground transition-colors py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Showcase
+                </a>
+                <a
+                  href="https://7thpillar.com"
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="text-sm text-muted hover:text-foreground transition-colors py-2"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  Our Agency
+                </a>
+                <a
+                  href="/"
+                  className="text-sm font-medium px-4 py-3 bg-amber-500/10 border border-amber-500/30 text-amber-400 rounded-lg hover:bg-amber-500/20 transition-colors text-center"
+                  onClick={() => setMobileMenuOpen(false)}
+                >
+                  $950 MVP Service
+                </a>
+              </nav>
+            </div>
+          )}
         </header>
       )}
 
