@@ -507,7 +507,7 @@ export default function FreePrototype() {
             <p className={`text-xl md:text-2xl text-muted max-w-2xl mx-auto mb-4 transition-all duration-700 delay-300 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              You know it could work. But between your job, life, and figuring out where to start — it just sits there.{" "}
+              You know it could work. But between everything going on and figuring out where to start — it just sits there.{" "}
               <span className="text-foreground">Weeks turn into months.</span> Meanwhile, someone else might be building the same thing.
             </p>
 
@@ -518,7 +518,7 @@ export default function FreePrototype() {
               Get a{" "}
               <span className="text-emerald-400 font-semibold">free working prototype</span> of your idea.
               Something you can click around, share with friends, investors, or potential customers.{" "}
-              <span className="text-foreground font-medium">See if it has legs — before you quit your job or burn through savings.</span>
+              <span className="text-foreground font-medium">See if it has legs — before you go all in.</span>
             </p>
 
             {/* CTA */}
