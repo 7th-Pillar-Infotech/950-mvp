@@ -491,44 +491,34 @@ export default function FreePrototype() {
               </div>
             </div>
 
-            {/* Headline */}
+            {/* Headline - Problem */}
             <h1 className={`font-serif text-4xl md:text-6xl lg:text-7xl leading-[1.1] tracking-tight mb-6 transition-all duration-700 delay-200 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              Get a{" "}
+              Got a startup idea{" "}
               <span className="relative inline-block">
-                <span className="bg-gradient-to-r from-emerald-400 via-teal-400 to-emerald-400 bg-clip-text text-transparent font-bold">
-                  FREE
-                </span>
-                <span className="absolute -top-1 -right-3 md:-right-4">
-                  <span className="relative flex h-3 w-3 md:h-4 md:w-4">
-                    <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-emerald-400 opacity-75"></span>
-                    <span className="relative inline-flex rounded-full h-3 w-3 md:h-4 md:w-4 bg-emerald-500"></span>
-                  </span>
-                </span>
-              </span>{" "}
-              prototype
-              <br />
-              <span className="relative inline-block mt-2">
-                <span className="italic bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
-                  before you build it.
+                <span className="bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent italic">
+                  stuck in your head?
                 </span>
               </span>
             </h1>
 
+            {/* Agitation */}
             <p className={`text-xl md:text-2xl text-muted max-w-2xl mx-auto mb-4 transition-all duration-700 delay-300 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              A <span className="text-foreground font-medium">clickable React prototype</span> +{" "}
-              <span className="text-foreground font-medium">landing page</span> for your startup idea.
-              <br />
-              <span className="text-emerald-400 font-semibold">No credit card. No catch.</span> Delivered in 24-48 hours.
+              You know it could work. But between your job, life, and figuring out where to start — it just sits there.{" "}
+              <span className="text-foreground">Weeks turn into months.</span> Meanwhile, someone else might be building the same thing.
             </p>
 
-            <p className={`text-base text-muted/70 max-w-xl mx-auto mb-10 transition-all duration-700 delay-400 ${
+            {/* Solution */}
+            <p className={`text-lg text-muted/90 max-w-xl mx-auto mb-10 transition-all duration-700 delay-400 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              Just a quick 2-minute chat to understand your idea, and we&apos;ll bring it to life.
+              Get a{" "}
+              <span className="text-emerald-400 font-semibold">free working prototype</span> of your idea.
+              Something you can click around, share with friends, investors, or potential customers.{" "}
+              <span className="text-foreground font-medium">See if it has legs — before you quit your job or burn through savings.</span>
             </p>
 
             {/* CTA */}
@@ -574,20 +564,11 @@ export default function FreePrototype() {
             </div>
 
             {/* Trust indicators */}
-            <div className={`mt-16 flex flex-wrap justify-center gap-8 transition-all duration-700 delay-600 ${
+            <p className={`mt-6 text-sm text-muted/70 transition-all duration-700 delay-600 ${
               mounted ? "opacity-100 translate-y-0" : "opacity-0 translate-y-8"
             }`}>
-              {[
-                { icon: "🎨", text: "Clickable React/Next.js prototype" },
-                { icon: "🚀", text: "Landing page included" },
-                { icon: "⏱️", text: "Delivered in 24-48 hours" },
-              ].map((item, i) => (
-                <div key={i} className="flex items-center gap-2 text-muted">
-                  <span>{item.icon}</span>
-                  <span className="text-sm">{item.text}</span>
-                </div>
-              ))}
-            </div>
+              No credit card. No catch. Just a 2-minute chat about your idea.
+            </p>
 
             {/* Agency link */}
             <div className={`mt-10 transition-all duration-700 delay-700 ${mounted ? "opacity-100" : "opacity-0"}`}>
@@ -614,10 +595,7 @@ export default function FreePrototype() {
                 How It Works
               </span>
               <h2 className="font-serif text-3xl md:text-5xl">
-                From idea to prototype in{" "}
-                <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                  3 simple steps
-                </span>
+                Here&apos;s how it works
               </h2>
             </div>
 
@@ -625,18 +603,18 @@ export default function FreePrototype() {
               {[
                 {
                   step: "01",
-                  title: "Start chatting",
-                  description: "Click the button and tell our AI about your idea. No forms, just a natural conversation.",
+                  title: "Tell us your idea",
+                  description: "Just chat with us for 2 minutes. No forms, no jargon. Explain it like you would to a friend.",
                 },
                 {
                   step: "02",
-                  title: "Answer a few questions",
-                  description: "Our AI asks about your target users, core features, and design preferences. Takes 2 minutes.",
+                  title: "We build it overnight",
+                  description: "Our team turns your idea into something real. Screens you can click. A page that explains what you're building.",
                 },
                 {
                   step: "03",
-                  title: "Get your prototype",
-                  description: "Receive a clickable React prototype + landing page via email within 24-48 hours.",
+                  title: "Check your inbox",
+                  description: "Within 24-48 hours, you'll have a working prototype + landing page. Yours to keep, share, and test.",
                 },
               ].map((item, i) => (
                 <div key={i} className="relative">
@@ -661,14 +639,11 @@ export default function FreePrototype() {
                 What You Get
               </span>
               <h2 className="font-serif text-3xl md:text-5xl mb-4">
-                A real prototype.{" "}
+                This isn&apos;t a mockup.{" "}
                 <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                  Not a mockup.
+                  It&apos;s the real thing.
                 </span>
               </h2>
-              <p className="text-muted text-lg max-w-2xl mx-auto">
-                We don&apos;t do Figma wireframes. You get actual React code deployed to a live URL.
-              </p>
             </div>
 
             <div className="grid md:grid-cols-2 gap-8">
@@ -678,23 +653,23 @@ export default function FreePrototype() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 </div>
-                <h3 className="font-serif text-2xl mb-4">Clickable Prototype</h3>
+                <h3 className="font-serif text-2xl mb-4">Working Prototype</h3>
                 <ul className="space-y-3 text-muted">
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    3-5 screens with realistic mock data
+                    Screens that actually work (not just pictures)
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Built in React/Next.js (real code)
+                    Built with real code you can keep
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Responsive — works on mobile
+                    Works on your phone too
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Deployed to a live URL you can share
+                    Live link you can send to anyone
                   </li>
                 </ul>
               </div>
@@ -709,19 +684,19 @@ export default function FreePrototype() {
                 <ul className="space-y-3 text-muted">
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Hero section with your value prop
+                    Explains your idea clearly
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Features section highlighting benefits
+                    Captures emails from interested people
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Email capture / waitlist form
+                    Helps you test if anyone actually cares
                   </li>
                   <li className="flex items-start gap-3">
                     <span className="text-amber-500 mt-1">✓</span>
-                    Perfect for gauging interest
+                    Looks legit (not some sketchy template)
                   </li>
                 </ul>
               </div>
@@ -737,13 +712,13 @@ export default function FreePrototype() {
                 Recent Work
               </span>
               <h2 className="font-serif text-3xl md:text-5xl mb-4">
-                Prototypes we&apos;ve{" "}
+                Here&apos;s what we built{" "}
                 <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                  built this week
+                  this week
                 </span>
               </h2>
               <p className="text-muted text-lg max-w-2xl mx-auto">
-                Real prototypes for real founders. Here&apos;s what we shipped recently.
+                Real prototypes for real founders. Not mockups. Not wireframes. Working stuff.
               </p>
             </div>
 
@@ -870,14 +845,14 @@ export default function FreePrototype() {
         <section className="relative px-6 py-24">
           <div className="max-w-3xl mx-auto text-center">
             <h2 className="font-serif text-3xl md:text-5xl mb-6">
-              Ready to see your idea{" "}
+              Your idea deserves more than{" "}
               <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                come to life?
+                a notes app
               </span>
             </h2>
             <p className="text-muted text-lg mb-10">
               {spotsRemaining > 0
-                ? `Only ${spotsRemaining} spots remaining today. Don't miss out.`
+                ? `Stop describing it. Start showing it. ${spotsRemaining} spots left today.`
                 : "All spots taken for today. Come back tomorrow!"}
             </p>
             {alreadySubmitted ? (
@@ -945,14 +920,14 @@ export default function FreePrototype() {
               </div>
             </div>
             <div className="pt-6 border-t border-white/5 flex flex-col md:flex-row justify-between items-center gap-4 text-sm text-muted">
-              <div>© {new Date().getFullYear()} — Built with precision.</div>
+              <div>© {new Date().getFullYear()} — We&apos;ve been doing this for 10+ years.</div>
               <a
                 href="https://7thpillar.com"
                 target="_blank"
                 rel="noopener noreferrer"
                 className="flex items-center gap-2 hover:text-foreground transition-colors"
               >
-                <span>A product by</span>
+                <span>Built by</span>
                 <span className="font-medium text-foreground">7th Pillar</span>
               </a>
             </div>
