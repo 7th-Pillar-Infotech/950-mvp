@@ -1,0 +1,31 @@
+TITLE: Doing free prototypes for founders - 10 spots/day, no strings
+
+---
+
+So here's the deal.
+
+I've been building MVPs for startups for like 10 years now. And the thing that kills me? Watching founders disappear for 6 months to build something, only to find out nobody actually wants it. Seen it happen way too many times.
+
+Anyway, I had this idea last week. What if I just... made prototypes for people? For free? Like actual clickable stuff, not some figma mockup.
+
+Started doing it. Honestly it's been pretty fun.
+
+Here's what I'm handing over:
+- Real React code, 3-5 screens that actually click around
+- Landing page so you can gauge interest
+- Hosted on a real URL you can send to people
+- Done in a day or two
+
+No payment info, no "free trial" bs. Just tell me what you're building and I'll make it.
+
+Why tho? I mean yeah it feeds into our paid stuff ($950 full MVPs) but whatever. Worst case you get a free prototype and ghost me. I'm fine with that lol.
+
+Only thing is I'm capping it at 10/day because otherwise I'll drown. There's a quick chat thing on the site where you describe your idea and we go from there.
+
+[your-domain]/free-prototype
+
+If this sounds useful cool. If not, no worries. Just thought I'd throw it out here.
+
+---
+
+WHERE TO POST: r/Entrepreneur, r/startups, r/SideProject, r/smallbusiness
