@@ -72,12 +72,21 @@ export const metadata: Metadata = {
     siteName: "$950 MVP",
     title: "$950 MVP — From Idea to Product",
     description: "Yes, AI can build your MVP. We make sure it's worth building. Get a scalable, investor-ready MVP for $950.",
+    images: [
+      {
+        url: "/og-image-main.png",
+        width: 1200,
+        height: 630,
+        alt: "$950 MVP - From Idea to Product",
+      },
+    ],
   },
   twitter: {
     card: "summary_large_image",
     title: "$950 MVP — From Idea to Product",
     description: "Yes, AI can build your MVP. We make sure it's worth building. Get a scalable, investor-ready MVP for $950.",
     creator: "@7thpillar",
+    images: ["/og-image-main.png"],
   },
   robots: {
     index: true,

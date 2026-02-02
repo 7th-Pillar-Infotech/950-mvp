@@ -24,7 +24,7 @@ export const metadata: Metadata = {
     description: "Get a FREE clickable React prototype + landing page for your startup idea. No credit card. Limited spots daily.",
     images: [
       {
-        url: "/og-image.svg",
+        url: "/og-image-free.png",
         width: 1200,
         height: 630,
         alt: "Free Prototype - Get a Clickable React Prototype",
@@ -35,7 +35,7 @@ export const metadata: Metadata = {
     card: "summary_large_image",
     title: "Free Prototype — Clickable React Prototype in 24-48 Hours",
     description: "Get a FREE clickable React prototype + landing page for your startup idea. No credit card. Limited spots daily.",
-    images: ["/og-image.svg"],
+    images: ["/og-image-free.png"],
   },
   alternates: {
     canonical: `${siteUrl}/free-prototype`,
