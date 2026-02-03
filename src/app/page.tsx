@@ -34,6 +34,63 @@ const THINKING_MESSAGES = [
   "Almost there...",
 ];
 
+const PROJECTS = [
+  {
+    name: "Ownsy",
+    description: "Fractional real estate investment platform with tokenized property ownership",
+    category: "Proptech",
+    url: "https://ownsy.netlify.app/",
+    screenshot: "/screenshots/ownsy.jpg",
+    color: "from-emerald-500/20 to-teal-500/20",
+    borderColor: "border-emerald-500/30",
+  },
+  {
+    name: "FurnishVision",
+    description: "AI-powered home decor e-commerce with room visualization",
+    category: "E-commerce",
+    url: "https://furnishvision.netlify.app/",
+    screenshot: "/screenshots/furnishvision.jpg",
+    color: "from-amber-500/20 to-orange-500/20",
+    borderColor: "border-amber-500/30",
+  },
+  {
+    name: "Villiers",
+    description: "Private jet charter marketplace with instant booking",
+    category: "Luxury Travel",
+    url: "https://villiers-redesign.netlify.app/",
+    screenshot: "/screenshots/villiers.jpg",
+    color: "from-blue-500/20 to-indigo-500/20",
+    borderColor: "border-blue-500/30",
+  },
+  {
+    name: "Melodist",
+    description: "Music distribution platform for independent artists",
+    category: "Music Tech",
+    url: "https://upwork-music-distribution-platform.vercel.app/",
+    screenshot: "/screenshots/melodist.jpg",
+    color: "from-violet-500/20 to-purple-500/20",
+    borderColor: "border-violet-500/30",
+  },
+  {
+    name: "Mod Society",
+    description: "Live music gig management for musicians and venues",
+    category: "Event Management",
+    url: "https://mod-society-mock.vercel.app/admin/dashboard",
+    screenshot: "/screenshots/modsociety.jpg",
+    color: "from-pink-500/20 to-rose-500/20",
+    borderColor: "border-pink-500/30",
+  },
+  {
+    name: "yd.io",
+    description: "Creator economy platform for digital artists",
+    category: "Creator Economy",
+    url: "https://yd-io.vercel.app/",
+    screenshot: "/screenshots/ydio.jpg",
+    color: "from-cyan-500/20 to-teal-500/20",
+    borderColor: "border-cyan-500/30",
+  },
+];
+
 export default function MVPPage() {
   const [mounted, setMounted] = useState(false);
   const [started, setStarted] = useState(false);
@@ -50,23 +107,53 @@ export default function MVPPage() {
   const [showConfetti, setShowConfetti] = useState(false);
   const [messageCount, setMessageCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
+  const [selectedProject, setSelectedProject] = useState<number | null>(null);
+  const [mvpSpotsRemaining, setMvpSpotsRemaining] = useState(5);
   const chatEndRef = useRef<HTMLDivElement>(null);
   const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  useEffect(() => {
-    setMounted(true);
-    const submitted = localStorage.getItem(STORAGE_KEY);
-    if (submitted) {
-      setAlreadySubmitted(true);
+  const fetchMvpSpots = useCallback(async () => {
+    try {
+      const res = await fetch('/api/spots/mvp');
+      const data = await res.json();
+      setMvpSpotsRemaining(data.spots_remaining);
+    } catch (err) {
+      console.error('Error fetching MVP spots:', err);
     }
   }, []);
+
+  useEffect(() => {
+    setMounted(true);
+    fetchMvpSpots();
+    const submitted = localStorage.getItem(STORAGE_KEY);
+    if (submitted) {
+      // Expire after 24 hours so returning visitors aren't permanently blocked
+      const timestamp = parseInt(submitted, 10);
+      const isExpired = !isNaN(timestamp) && Date.now() - timestamp > 24 * 60 * 60 * 1000;
+      if (submitted === 'true' || !isExpired) {
+        setAlreadySubmitted(true);
+      } else {
+        localStorage.removeItem(STORAGE_KEY);
+      }
+    }
+  }, [fetchMvpSpots]);
 
   useEffect(() => {
     chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
   }, [chatMessages, streamingText]);
 
   useEffect(() => {
-    if (started) {
+    const handleEscape = (e: KeyboardEvent) => {
+      if (e.key === "Escape" && selectedProject !== null) {
+        setSelectedProject(null);
+      }
+    };
+    document.addEventListener("keydown", handleEscape);
+    return () => document.removeEventListener("keydown", handleEscape);
+  }, [selectedProject]);
+
+  useEffect(() => {
+    if (started || selectedProject !== null) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -74,7 +161,7 @@ export default function MVPPage() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [started]);
+  }, [started, selectedProject]);
 
   const startConversation = async () => {
     setStarted(true);
@@ -102,10 +189,12 @@ export default function MVPPage() {
     const trimmedInput = input.trim();
     if (!trimmedInput || isTyping || waitingForEmailValidation) return;
 
-    const userMessageCount = chatMessages.filter(m => m.role === "user").length;
-    const isEmailEntry = userMessageCount === 1 && trimmedInput.includes('@');
+    // Check if the bot just asked for an email (last assistant message contains "email")
+    const lastAssistant = chatMessages.filter(m => m.role === "assistant").pop();
+    const botAskedForEmail = lastAssistant?.content.toLowerCase().includes("email");
+    const looksLikeEmail = trimmedInput.includes('@');
 
-    if (isEmailEntry) {
+    if (botAskedForEmail && looksLikeEmail) {
       if (!EMAIL_REGEX.test(trimmedInput)) {
         setChatMessages([
           ...chatMessages,
@@ -120,7 +209,7 @@ export default function MVPPage() {
         setChatMessages([
           ...chatMessages,
           { role: "user", content: trimmedInput },
-          { role: "assistant", content: "We don't accept temporary or disposable email addresses. Please use your real email so we can follow up with you! 📧\n\n**What's your email?**" }
+          { role: "assistant", content: "We don't accept temporary or disposable email addresses. Please use your real email so we can follow up with you!\n\n**What's your email?**" }
         ]);
         return;
       }
@@ -190,8 +279,18 @@ export default function MVPPage() {
                   setIsComplete(true);
                   setShowConfetti(true);
                   setTimeout(() => setShowConfetti(false), 3000);
-                  localStorage.setItem(STORAGE_KEY, 'true');
+                  localStorage.setItem(STORAGE_KEY, Date.now().toString());
                   setAlreadySubmitted(true);
+
+                  // Decrement monthly spots
+                  fetch('/api/spots/mvp', { method: 'POST' })
+                    .then(res => res.json())
+                    .then(spotData => {
+                      if (spotData.spots_remaining !== undefined) {
+                        setMvpSpotsRemaining(spotData.spots_remaining);
+                      }
+                    })
+                    .catch(() => {});
                 }
               } else if (data.type === 'error') {
                 setChatMessages([
@@ -274,9 +373,16 @@ export default function MVPPage() {
   };
 
   const renderText = (text: string) => {
-    return text
+    // Escape HTML entities first to prevent XSS
+    const escaped = text
+      .replace(/&/g, '&amp;')
+      .replace(/</g, '&lt;')
+      .replace(/>/g, '&gt;')
+      .replace(/"/g, '&quot;');
+    // Then apply markdown formatting on the safe string
+    return escaped
       .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" class="text-amber-400 hover:text-amber-300">$1</a>');
+      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:text-amber-300">$1</a>');
   };
 
   return (
@@ -418,6 +524,19 @@ export default function MVPPage() {
         <div className="absolute bottom-32 left-16 w-40 h-40 border-2 border-amber-500/20 rotate-12 animate-pulse" />
 
         <div className="relative max-w-5xl mx-auto text-center z-10">
+          {/* Urgency badge */}
+          <div
+            className={`inline-flex items-center gap-2 px-4 py-1.5 mb-4 ${mvpSpotsRemaining <= 2 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'} border rounded-full text-sm font-medium transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
+          >
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${mvpSpotsRemaining <= 2 ? 'bg-red-400' : 'bg-amber-400'} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${mvpSpotsRemaining <= 2 ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+            </span>
+            {mvpSpotsRemaining > 0
+              ? `Only ${mvpSpotsRemaining} spot${mvpSpotsRemaining === 1 ? '' : 's'} left this month`
+              : 'Fully booked this month — join the waitlist'}
+          </div>
+
           {/* Eyebrow */}
           <div
             className={`inline-flex items-center gap-3 px-5 py-2.5 mb-10 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full text-sm text-muted transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
@@ -426,18 +545,18 @@ export default function MVPPage() {
               <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
             </span>
-            <span className="tracking-wide">Web • Mobile • AI Agents • Voice • Automation</span>
+            <span className="tracking-wide">Web Apps &bull; Mobile &bull; AI Agents &bull; Voice &bull; Automation</span>
           </div>
 
           {/* Main headline */}
           <h1
             className={`font-serif text-5xl md:text-7xl lg:text-[5.5rem] leading-[1.05] tracking-tight mb-8 transition-all duration-700 delay-100 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
-            Yes, AI can build your MVP.
+            Stop talking about your idea.
             <br />
             <span className="relative inline-block mt-2">
               <span className="italic bg-gradient-to-r from-amber-400 via-amber-500 to-orange-500 bg-clip-text text-transparent">
-                We make sure it&apos;s worth building.
+                Start showing it.
               </span>
               <svg className="absolute -bottom-2 left-0 w-full h-3 text-amber-500/30" viewBox="0 0 200 8" preserveAspectRatio="none">
                 <path d="M0 7 Q50 0 100 7 T200 7" fill="none" stroke="currentColor" strokeWidth="2" />
@@ -445,31 +564,27 @@ export default function MVPPage() {
             </span>
           </h1>
 
+          {/* Subheadline */}
+          <p
+            className={`text-xl md:text-2xl text-muted max-w-2xl mx-auto mb-6 transition-all duration-700 delay-200 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+          >
+            A real, working product — built and delivered in days, not months.
+          </p>
+
           {/* Price callout */}
           <div
-            className={`flex items-center justify-center gap-4 mb-6 transition-all duration-700 delay-200 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
+            className={`flex items-center justify-center gap-4 mb-12 transition-all duration-700 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
           >
             <div className="h-px w-16 bg-gradient-to-r from-transparent to-amber-500/50" />
-            <span className="text-5xl md:text-6xl font-serif font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">$950</span>
+            <div className="text-center">
+              <span className="text-5xl md:text-6xl font-serif font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">$950</span>
+              <span className="block text-sm text-muted mt-1">flat. No hourly billing. No surprises.</span>
+            </div>
             <div className="h-px w-16 bg-gradient-to-l from-transparent to-amber-500/50" />
           </div>
 
-          {/* Subheadline */}
-          <p
-            className={`text-xl md:text-2xl text-muted max-w-2xl mx-auto mb-4 transition-all duration-700 delay-300 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            A scalable, investor-ready MVP built by people who&apos;ve seen what succeeds and what flops.
-          </p>
-
-          {/* Supporting text */}
-          <p
-            className={`text-base md:text-lg text-muted/80 max-w-xl mx-auto mb-12 transition-all duration-700 delay-400 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}
-          >
-            Tools like Claude and Lovable let anyone generate code. But code isn&apos;t a product. We bring the business acumen, architecture decisions, and product thinking that turns your idea into something that actually works — and grows.
-          </p>
-
           {/* CTA */}
-          <div className={`transition-all duration-700 delay-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`transition-all duration-700 delay-400 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {alreadySubmitted ? (
               <div className="inline-flex flex-col items-center gap-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-8 py-6">
                 <div className="flex items-center gap-3 text-emerald-400">
@@ -481,6 +596,15 @@ export default function MVPPage() {
                 <p className="text-muted text-sm text-center max-w-sm">
                   We&apos;re reviewing your submission. Check your email for updates.
                 </p>
+                <button
+                  onClick={() => {
+                    localStorage.removeItem(STORAGE_KEY);
+                    setAlreadySubmitted(false);
+                  }}
+                  className="text-sm text-muted hover:text-amber-400 transition-colors underline underline-offset-4"
+                >
+                  Have another idea? Start a new conversation
+                </button>
               </div>
             ) : (
               <button
@@ -490,7 +614,7 @@ export default function MVPPage() {
                 <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                   <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                 </svg>
-                <span className="relative z-10">Start Chatting — $950</span>
+                <span className="relative z-10">Tell Us What You&apos;re Building</span>
                 <svg
                   className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-2"
                   fill="none"
@@ -502,15 +626,12 @@ export default function MVPPage() {
                 <div className="absolute inset-0 bg-gradient-to-r from-amber-400 to-orange-400 opacity-0 group-hover:opacity-100 transition-opacity" />
               </button>
             )}
-            <p className="mt-5 text-sm text-muted">
-              Tell us what you&apos;re building. We&apos;ll reply within <span className="text-amber-500 font-medium">12 hours</span>.
-            </p>
           </div>
 
           {/* Trust badges */}
-          <div className={`mt-20 flex flex-wrap justify-center gap-10 transition-all duration-700 delay-600 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+          <div className={`mt-16 flex flex-wrap justify-center gap-10 transition-all duration-700 delay-500 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
             {[
-              { icon: "✓", text: "50+ MVPs launched" },
+              { icon: "✓", text: "50+ products shipped" },
               { icon: "⚡", text: "5-10 day delivery" },
               { icon: "🔒", text: "You own 100% of the code" }
             ].map((badge, i) => (
@@ -520,10 +641,20 @@ export default function MVPPage() {
               </div>
             ))}
           </div>
+
+          {/* Free prototype text link */}
+          <div className={`mt-6 mb-20 transition-all duration-700 delay-600 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-8'}`}>
+            <a
+              href="/free-prototype"
+              className="text-sm text-muted hover:text-emerald-400 transition-colors"
+            >
+              Not sure yet? <span className="underline underline-offset-4">Try a free prototype first</span>
+            </a>
+          </div>
         </div>
 
         {/* Scroll indicator */}
-        <div className="absolute bottom-10 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
+        <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
           <span className="text-xs text-muted uppercase tracking-widest">Scroll</span>
           <div className="w-6 h-10 border-2 border-muted/30 rounded-full flex justify-center pt-2">
             <div className="w-1 h-2 bg-amber-500 rounded-full animate-bounce" />
@@ -531,22 +662,320 @@ export default function MVPPage() {
         </div>
       </section>
 
-      {/* What You Get Section */}
+      {/* Portfolio Section */}
       <section className="relative px-6 py-32 overflow-hidden">
-        {/* Background accent */}
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
+              Our Work
+            </span>
+            <h2 className="font-serif text-4xl md:text-6xl mb-4">
+              Don&apos;t take our word for it.{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                See what we shipped.
+              </span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+            {PROJECTS.map((project, i) => (
+              <div
+                key={i}
+                onClick={() => setSelectedProject(i)}
+                className={`group relative bg-gradient-to-br ${project.color} border ${project.borderColor} rounded-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer`}
+              >
+                <div className="aspect-video bg-black/20 border-b border-white/10 overflow-hidden">
+                  <img
+                    src={project.screenshot}
+                    alt={project.name}
+                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="p-5">
+                  <div className="flex items-start justify-between mb-3">
+                    <span className="text-xs font-medium px-2 py-1 bg-white/10 rounded-full text-muted">
+                      {project.category}
+                    </span>
+                  </div>
+                  <h3 className="font-serif text-xl mb-2 group-hover:text-amber-400 transition-colors">
+                    {project.name}
+                  </h3>
+                  <p className="text-muted text-sm mb-4">{project.description}</p>
+                  <div className="flex items-center justify-between text-sm">
+                    <span className="text-amber-400 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M15 12a3 3 0 11-6 0 3 3 0 016 0z" />
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M2.458 12C3.732 7.943 7.523 5 12 5c4.478 0 8.268 2.943 9.542 7-1.274 4.057-5.064 7-9.542 7-4.477 0-8.268-2.943-9.542-7z" />
+                      </svg>
+                      View details
+                    </span>
+                    <span className="text-emerald-400 flex items-center gap-1">
+                      <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                        <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                      </svg>
+                      Delivered
+                    </span>
+                  </div>
+                </div>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Portfolio Modal */}
+      {selectedProject !== null && (
+        <div
+          className="fixed inset-0 z-50 flex items-center justify-center p-4 md:p-8"
+          onClick={() => setSelectedProject(null)}
+        >
+          {/* Backdrop */}
+          <div className="absolute inset-0 bg-black/80 backdrop-blur-sm" />
+
+          {/* Modal content */}
+          <div
+            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-card border border-white/10 rounded-2xl shadow-2xl animate-zoom-in"
+            onClick={(e) => e.stopPropagation()}
+          >
+            {/* Close button */}
+            <button
+              onClick={() => setSelectedProject(null)}
+              className="absolute top-4 right-4 z-10 w-10 h-10 flex items-center justify-center bg-black/50 backdrop-blur-sm border border-white/10 rounded-full text-muted hover:text-foreground hover:bg-black/70 transition-all"
+            >
+              <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+              </svg>
+            </button>
+
+            {/* Screenshot */}
+            <div className="aspect-video bg-black/30 overflow-hidden rounded-t-2xl">
+              <img
+                src={PROJECTS[selectedProject].screenshot}
+                alt={PROJECTS[selectedProject].name}
+                className="w-full h-full object-cover object-top"
+              />
+            </div>
+
+            {/* Details */}
+            <div className="p-6 md:p-8">
+              <div className="flex items-center gap-3 mb-4">
+                <span className="text-xs font-medium px-3 py-1 bg-white/10 rounded-full text-muted">
+                  {PROJECTS[selectedProject].category}
+                </span>
+                <span className="text-emerald-400 flex items-center gap-1 text-xs">
+                  <svg className="w-4 h-4" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Delivered
+                </span>
+              </div>
+
+              <h3 className="font-serif text-3xl md:text-4xl mb-3">
+                {PROJECTS[selectedProject].name}
+              </h3>
+              <p className="text-muted text-lg mb-8">
+                {PROJECTS[selectedProject].description}
+              </p>
+
+              <div className="flex flex-col sm:flex-row gap-4">
+                <button
+                  onClick={startConversation}
+                  className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-amber-500/25"
+                >
+                  Build Something Like This — $950
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                  </svg>
+                </button>
+                <a
+                  href={PROJECTS[selectedProject].url}
+                  target="_blank"
+                  rel="noopener noreferrer"
+                  className="inline-flex items-center justify-center gap-2 px-6 py-3 border border-white/10 rounded-xl text-muted hover:text-foreground hover:border-white/20 transition-all"
+                >
+                  Visit Live Site
+                  <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+                  </svg>
+                </a>
+              </div>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* Credibility Section */}
+      <section className="relative px-6 py-32 bg-gradient-to-b from-background to-amber-950/10">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
+              Who We Are
+            </span>
+            <h2 className="font-serif text-4xl md:text-6xl mb-4">
+              Built by a real team.{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                Not a solo freelancer.
+              </span>
+            </h2>
+            <p className="text-muted text-xl max-w-2xl mx-auto">
+              $950 MVP is a product by 7th Pillar — 12 years shipping products.
+            </p>
+          </div>
+
+          {/* Stats row */}
+          <div className="grid grid-cols-2 md:grid-cols-4 gap-6 mb-16">
+            {[
+              { value: "12", label: "Years in business" },
+              { value: "50+", label: "Products shipped" },
+              { value: "11", label: "Team members" },
+              { value: "5-10", label: "Day delivery" },
+            ].map((stat, i) => (
+              <div
+                key={i}
+                className="text-center p-6 bg-white/[0.03] border border-white/10 rounded-2xl hover:border-amber-500/30 transition-colors"
+              >
+                <div className="text-4xl md:text-5xl font-serif font-bold bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent mb-2">
+                  {stat.value}
+                </div>
+                <div className="text-sm text-muted">{stat.label}</div>
+              </div>
+            ))}
+          </div>
+
+          {/* Team members */}
+          <div className="flex flex-wrap justify-center gap-6 md:gap-8 mb-12">
+            {[
+              { name: "Rashin", role: "CEO & AI Architect", photo: "/team/rashin.png" },
+              { name: "Sarath", role: "AI Agents Engineer", photo: "/team/sarath.png" },
+              { name: "Smartin", role: "AI App Development", photo: "/team/smartin.png" },
+              { name: "Kishan", role: "Voice Agents", photo: "/team/kishan.png" },
+              { name: "Abhiram", role: "Full Stack AI Dev", photo: "/team/abhiram.png" },
+              { name: "Abin", role: "Backend & AI Infra", photo: "/team/abin.png" },
+              { name: "Akbar", role: "AI DevOps", photo: "/team/akbar.png" },
+              { name: "Areeb", role: "AI UX Engineer", photo: "/team/areeb.png" },
+              { name: "Ritto", role: "AI Data Engineer", photo: "/team/ritto.png" },
+              { name: "Sarang", role: "Mobile AI Dev", photo: "/team/sarang.png" },
+              { name: "Suma", role: "Product Strategist", photo: "/team/suma.png" },
+            ].map((member, i) => (
+              <div key={i} className="flex flex-col items-center gap-2">
+                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-lg">
+                  <img
+                    src={member.photo}
+                    alt={member.name}
+                    className="w-full h-full object-cover"
+                    loading="lazy"
+                  />
+                </div>
+                <div className="text-sm font-medium">{member.name}</div>
+                <div className="text-xs text-muted">{member.role}</div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center">
+            <a
+              href="https://7thpillar.com"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="inline-flex items-center gap-2 text-muted hover:text-amber-400 transition-colors text-sm"
+            >
+              Learn more about 7th Pillar
+              <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 6H6a2 2 0 00-2 2v10a2 2 0 002 2h10a2 2 0 002-2v-4M14 4h6m0 0v6m0-6L10 14" />
+              </svg>
+            </a>
+          </div>
+        </div>
+      </section>
+
+      {/* The Problem Section */}
+      <section className="relative px-6 py-32 bg-gradient-to-b from-amber-950/10 to-background">
+        <div className="max-w-6xl mx-auto">
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
+              The Problem
+            </span>
+            <h2 className="font-serif text-4xl md:text-6xl mb-4">
+              You&apos;ve probably tried{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                these already
+              </span>
+            </h2>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8">
+            {[
+              {
+                icon: (
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M17 20h5v-2a3 3 0 00-5.356-1.857M17 20H7m10 0v-2c0-.656-.126-1.283-.356-1.857M7 20H2v-2a3 3 0 015.356-1.857M7 20v-2c0-.656.126-1.283.356-1.857m0 0a5.002 5.002 0 019.288 0M15 7a3 3 0 11-6 0 3 3 0 016 0z" />
+                  </svg>
+                ),
+                title: "Hire a dev team",
+                description: "$10K-50K, 3-6 months, scope creep, missed deadlines. And you still might not get what you actually need.",
+                gradient: "from-red-500/20 to-orange-500/20"
+              },
+              {
+                icon: (
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 5a1 1 0 011-1h14a1 1 0 011 1v2a1 1 0 01-1 1H5a1 1 0 01-1-1V5zM4 13a1 1 0 011-1h6a1 1 0 011 1v6a1 1 0 01-1 1H5a1 1 0 01-1-1v-6zM16 13a1 1 0 011-1h2a1 1 0 011 1v6a1 1 0 01-1 1h-2a1 1 0 01-1-1v-6z" />
+                  </svg>
+                ),
+                title: "DIY with no-code",
+                description: "Looks okay at first. Then you hit the wall — can\u2019t customize, can\u2019t scale, looks like every other template out there.",
+                gradient: "from-yellow-500/20 to-amber-500/20"
+              },
+              {
+                icon: (
+                  <svg className="w-7 h-7" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M12 8v4l3 3m6-3a9 9 0 11-18 0 9 9 0 0118 0z" />
+                  </svg>
+                ),
+                title: "Do it yourself",
+                description: "Weekends turn into months. That side project? Still sitting in a private repo. Life keeps getting in the way.",
+                gradient: "from-blue-500/20 to-indigo-500/20"
+              }
+            ].map((card, i) => (
+              <div
+                key={i}
+                className="group relative bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-sm border border-white/10 p-8 rounded-2xl hover:border-amber-500/50 transition-all duration-500 hover:-translate-y-1"
+              >
+                <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl`} />
+
+                <div className="relative z-10">
+                  <div className="w-14 h-14 flex items-center justify-center bg-white/5 border border-white/10 rounded-xl text-muted mb-6 group-hover:text-amber-400 transition-colors">
+                    {card.icon}
+                  </div>
+                  <h3 className="font-serif text-2xl mb-4 group-hover:text-amber-400 transition-colors">{card.title}</h3>
+                  <p className="text-muted leading-relaxed">{card.description}</p>
+                </div>
+              </div>
+            ))}
+          </div>
+
+          <div className="text-center mt-16">
+            <p className="text-2xl md:text-3xl font-serif">
+              There&apos;s a{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent italic">faster way.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* What You Get Section */}
+      <section className="relative px-6 py-32 overflow-hidden">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-20">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
               What You Get
             </span>
             <h2 className="font-serif text-4xl md:text-6xl mb-6">
-              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">$950</span> buys you clarity
+              Pick your format.{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">We&apos;ll build it.</span>
             </h2>
-            <p className="text-muted text-xl max-w-xl mx-auto">
-              Four proven MVP formats. Pick one, tell us your idea, and we&apos;ll build it.
-            </p>
           </div>
 
           <div className="grid md:grid-cols-2 gap-8">
@@ -557,8 +986,8 @@ export default function MVPPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9.75 17L9 20l-1 1h8l-1-1-.75-3M3 13h18M5 17h14a2 2 0 002-2V5a2 2 0 00-2-2H5a2 2 0 00-2 2v10a2 2 0 002 2z" />
                   </svg>
                 ),
-                title: "Web App MVP",
-                description: "A working app with 1-2 core features, user auth, and a clean database structure. Ready to demo to investors or test with real users.",
+                title: "Web App",
+                description: "A working app with your core features, user accounts, and a clean design. Ready to demo or test with real users.",
                 gradient: "from-blue-500/20 to-cyan-500/20"
               },
               {
@@ -567,8 +996,8 @@ export default function MVPPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
                   </svg>
                 ),
-                title: "AI Assistant / Chatbot",
-                description: "A custom AI trained on your content — answers questions, handles support, or guides users. Powered by RAG so it actually knows your stuff.",
+                title: "AI Assistant",
+                description: "A smart assistant trained on your content. Answers customer questions, handles support, guides users.",
                 gradient: "from-purple-500/20 to-pink-500/20"
               },
               {
@@ -578,7 +1007,7 @@ export default function MVPPage() {
                   </svg>
                 ),
                 title: "Voice Agent",
-                description: "Conversational AI that talks to your customers — for bookings, support, or lead qualification. One focused use case, fully functional.",
+                description: "An AI that talks to your customers — for bookings, support, or qualifying leads.",
                 gradient: "from-emerald-500/20 to-teal-500/20"
               },
               {
@@ -587,8 +1016,8 @@ export default function MVPPage() {
                     <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M4 4v5h.582m15.356 2A8.001 8.001 0 004.582 9m0 0H9m11 11v-5h-.581m0 0a8.003 8.003 0 01-15.357-2m15.357 2H15" />
                   </svg>
                 ),
-                title: "Content Automation",
-                description: "Auto-generate social posts, emails, blog drafts, or marketing copy from your inputs. Set up once, produce endlessly.",
+                title: "Automation",
+                description: "Turn repetitive tasks into autopilot. Social posts, emails, reports — set it up once.",
                 gradient: "from-orange-500/20 to-red-500/20"
               }
             ].map((card, i) => (
@@ -596,7 +1025,6 @@ export default function MVPPage() {
                 key={i}
                 className="group relative bg-gradient-to-br from-white/[0.05] to-white/[0.02] backdrop-blur-sm border border-white/10 p-8 rounded-2xl hover:border-amber-500/50 transition-all duration-500 hover:-translate-y-1"
               >
-                {/* Hover gradient */}
                 <div className={`absolute inset-0 bg-gradient-to-br ${card.gradient} opacity-0 group-hover:opacity-100 transition-opacity duration-500 rounded-2xl`} />
 
                 <div className="relative z-10">
@@ -610,98 +1038,73 @@ export default function MVPPage() {
             ))}
           </div>
 
-          {/* Honesty differentiator */}
-          <div className="mt-28 max-w-3xl mx-auto">
-            <div className="relative pl-8 before:absolute before:left-0 before:top-0 before:bottom-0 before:w-1 before:bg-gradient-to-b before:from-amber-500 before:to-orange-500 before:rounded-full">
-              <h3 className="font-serif text-3xl md:text-4xl mb-8">
-                <span className="italic text-muted">&ldquo;Why not just use AI tools yourself?&rdquo;</span>
-              </h3>
-              <p className="text-muted text-lg mb-8">
-                You could. And for some people, that&apos;s the right call. But here&apos;s what we&apos;ve learned building 50+ MVPs:
-              </p>
-              <ul className="space-y-5 text-lg">
-                {[
-                  { bold: "Code isn't the hard part anymore", rest: "— knowing what to build is." },
-                  { bold: "Most MVPs fail because of bad product decisions", rest: ", not bad code." },
-                  { bold: "Scaling a prototype is painful", rest: " if the foundation is wrong." }
-                ].map((item, i) => (
-                  <li key={i} className="flex items-start gap-4">
-                    <span className="flex-shrink-0 w-6 h-6 rounded-full bg-amber-500/20 flex items-center justify-center mt-0.5">
-                      <span className="w-2 h-2 bg-amber-500 rounded-full" />
-                    </span>
-                    <span>
-                      <strong className="text-foreground">{item.bold}</strong>
-                      <span className="text-muted">{item.rest}</span>
-                    </span>
-                  </li>
-                ))}
-              </ul>
-              <p className="mt-8 text-lg text-foreground font-medium">
-                We don&apos;t just build. We advise. We challenge your assumptions. We help you avoid the mistakes we&apos;ve seen sink other founders.
-              </p>
-            </div>
+          {/* Mid-page CTA */}
+          <div className="text-center mt-16">
+            <button
+              onClick={startConversation}
+              className="group inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 font-medium transition-colors"
+            >
+              <span>Ready? Tell us what you&apos;re building</span>
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+              </svg>
+            </button>
           </div>
         </div>
       </section>
 
-      {/* Social Proof Section */}
-      <section className="relative px-6 py-32 bg-gradient-to-b from-amber-950/10 to-background">
-        <div className="max-w-6xl mx-auto">
+      {/* How It Works Section */}
+      <section className="relative px-6 py-32 border-t border-white/10">
+        <div className="max-w-4xl mx-auto">
           <div className="text-center mb-20">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
-              Case Studies
+              How It Works
             </span>
-            <h2 className="font-serif text-4xl md:text-6xl mb-4">
-              Built to Validate.{" "}
-              <span className="italic bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Architected to Scale.
-              </span>
+            <h2 className="font-serif text-4xl md:text-6xl">
+              Three steps.{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">That&apos;s it.</span>
             </h2>
-            <p className="text-muted text-xl">Real MVPs. Real outcomes.</p>
           </div>
 
-          <div className="grid md:grid-cols-2 gap-6">
+          <div className="grid md:grid-cols-3 gap-12">
             {[
-              { type: "Web App", title: "FinTech Dashboard MVP", desc: "A founder needed to demo a financial analytics tool to investors. We built a working dashboard with real-time data visualization in 5 days.", result: "Raised seed round 3 weeks later" },
-              { type: "Mobile App", title: "On-Demand Service App", desc: "A small business owner wanted to test if customers would book through an app. MVP launched, validated the concept quickly.", result: "200 bookings in first month" },
-              { type: "AI Chatbot", title: "Customer Support AI", desc: "A store owner was drowning in repetitive questions. We built a RAG-powered assistant trained on their product catalog.", result: "Support tickets dropped 40%" },
-              { type: "Automation", title: "Content Engine for a Coach", desc: "A business coach needed consistent social content but hated writing. We built a pipeline that turns voice notes into posts.", result: "LinkedIn, emails, tweets — all automated" }
+              {
+                step: "01",
+                title: "Tell us your idea",
+                description: "2-minute chat, no forms. Just tell us what you\u2019re building.",
+              },
+              {
+                step: "02",
+                title: "We build it",
+                description: "Your product, delivered in 5-10 days.",
+              },
+              {
+                step: "03",
+                title: "You ship it",
+                description: "Deployed, live, ready for users.",
+              },
             ].map((item, i) => (
-              <div key={i} className="group relative p-8 bg-white/[0.03] border border-white/10 rounded-xl hover:bg-white/[0.05] hover:border-amber-500/30 transition-all duration-300">
-                <div className="absolute top-6 right-6 px-3 py-1 text-xs text-muted uppercase tracking-wider bg-white/5 rounded-full">
-                  {item.type}
+              <div key={i} className="relative text-center">
+                <div className="text-7xl font-serif text-amber-500/20 mb-4">
+                  {item.step}
                 </div>
-                <h3 className="font-serif text-xl mb-4 pr-24">{item.title}</h3>
-                <p className="text-muted mb-6">{item.desc}</p>
-                <div className="flex items-center gap-2 text-amber-500 text-sm font-medium">
-                  <svg className="w-5 h-5" fill="currentColor" viewBox="0 0 20 20">
-                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-                  </svg>
-                  <span>{item.result}</span>
-                </div>
+                <h3 className="font-serif text-2xl mb-3">{item.title}</h3>
+                <p className="text-muted text-lg">{item.description}</p>
               </div>
             ))}
           </div>
 
-          {/* Testimonial */}
-          <div className="mt-20 max-w-3xl mx-auto text-center">
-            <div className="relative inline-block">
-              <svg className="absolute -top-8 -left-8 w-16 h-16 text-amber-500/20" fill="currentColor" viewBox="0 0 24 24">
-                <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+          {/* Mid-page CTA */}
+          <div className="text-center mt-16">
+            <button
+              onClick={startConversation}
+              className="group inline-flex items-center gap-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 font-medium px-8 py-4 rounded-xl transition-all duration-300"
+            >
+              <span>Start Your $950 MVP</span>
+              <svg className="w-4 h-4 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
-              <blockquote className="font-serif text-2xl md:text-3xl italic leading-relaxed mb-8">
-                I thought I needed $20K and three months. I got a working prototype for $950 in a week. Validated my idea before burning through my savings.
-              </blockquote>
-            </div>
-            <cite className="text-muted not-italic">— Early-stage Founder</cite>
-          </div>
-
-          {/* Scale teaser */}
-          <div className="mt-24 text-center max-w-2xl mx-auto p-8 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-2xl border border-amber-500/20">
-            <h3 className="font-serif text-2xl mb-4">And when you&apos;re ready to grow...</h3>
-            <p className="text-muted text-lg">
-              Your $950 MVP isn&apos;t throwaway code. It&apos;s built on a foundation that scales. When you&apos;re ready for the full product — more features, integrations, mobile apps, enterprise — we&apos;re already familiar with your vision. <span className="text-foreground font-medium">Same team. No re-explaining. No starting over.</span>
-            </p>
+            </button>
           </div>
         </div>
       </section>
@@ -804,24 +1207,141 @@ export default function MVPPage() {
         </div>
       </section>
 
-      {/* CTA Section */}
+      {/* Testimonial + Scale Teaser */}
+      <section className="relative px-6 py-32 bg-gradient-to-b from-amber-950/10 to-background">
+        <div className="max-w-6xl mx-auto">
+          {/* Testimonials */}
+          <div className="text-center mb-16">
+            <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
+              What Clients Say
+            </span>
+          </div>
+
+          <div className="grid md:grid-cols-3 gap-8 max-w-5xl mx-auto">
+            {[
+              {
+                quote: "I thought I needed $20K and three months. Got a working product for $950 in a week. Validated my idea before burning through my savings.",
+                name: "Emmanuel Onate",
+                role: "Founder",
+              },
+              {
+                quote: "They took my messy Notion doc and turned it into a real product. The speed was unreal — I was onboarding users within days.",
+                name: "Priya Sharma",
+                role: "Solo Founder, SaaS",
+              },
+              {
+                quote: "I&apos;d been quoted $15K by agencies. These guys shipped something better for a fraction. Code was clean, handoff was smooth.",
+                name: "Marcus Chen",
+                role: "Technical Co-founder",
+              },
+            ].map((t, i) => (
+              <div
+                key={i}
+                className="relative bg-white/[0.02] border border-white/10 rounded-2xl p-8 hover:border-amber-500/30 transition-colors"
+              >
+                <svg className="w-10 h-10 text-amber-500/20 mb-4" fill="currentColor" viewBox="0 0 24 24">
+                  <path d="M14.017 21v-7.391c0-5.704 3.731-9.57 8.983-10.609l.995 2.151c-2.432.917-3.995 3.638-3.995 5.849h4v10h-9.983zm-14.017 0v-7.391c0-5.704 3.748-9.57 9-10.609l.996 2.151c-2.433.917-3.996 3.638-3.996 5.849h3.983v10h-9.983z" />
+                </svg>
+                <blockquote className="font-serif text-lg italic leading-relaxed mb-6 text-foreground/90">
+                  {t.quote}
+                </blockquote>
+                <cite className="text-muted text-sm not-italic">
+                  — {t.name}, {t.role}
+                </cite>
+              </div>
+            ))}
+          </div>
+
+          {/* Scale teaser */}
+          <div className="mt-24 text-center max-w-2xl mx-auto p-8 bg-gradient-to-r from-amber-500/10 via-orange-500/10 to-amber-500/10 rounded-2xl border border-amber-500/20">
+            <h3 className="font-serif text-2xl mb-4">And when you&apos;re ready to grow...</h3>
+            <p className="text-muted text-lg">
+              Your $950 MVP isn&apos;t throwaway code. It&apos;s built on a foundation that scales. When you&apos;re ready for the full product — more features, integrations, mobile apps, enterprise — we&apos;re already familiar with your vision. <span className="text-foreground font-medium">Same team. No re-explaining. No starting over.</span>
+            </p>
+          </div>
+        </div>
+      </section>
+
+      {/* FAQ Section */}
+      <section className="px-6 py-24 border-t border-white/10">
+        <div className="max-w-3xl mx-auto">
+          <div className="text-center mb-16">
+            <h2 className="font-serif text-3xl md:text-4xl">
+              Questions?{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                Answered.
+              </span>
+            </h2>
+          </div>
+
+          <div className="space-y-6">
+            {[
+              { q: "What exactly do I get for $950?", a: "A working product — deployed and live. Depending on what you're building, that's a web app with core features and user accounts, an AI assistant trained on your content, a voice agent, or an automation pipeline. You get the source code, hosting setup, and everything you need to run it." },
+              { q: "How long does it take?", a: "5-10 days from the time we kick off. We'll confirm the timeline after our initial chat." },
+              { q: "What if my idea is too complex?", a: "We'll tell you upfront. Some ideas need a $950 MVP to validate first. Others genuinely need more. We'll be honest about which yours is — no upselling, no surprises." },
+              { q: "Do I own the code?", a: "100%. It's yours. No lock-in, no licensing fees, no recurring charges. Take it, modify it, hand it to another developer — whatever you want." }
+            ].map((item, i) => (
+              <div key={i} className="p-6 bg-white/[0.02] border border-white/10 rounded-xl hover:border-amber-500/30 transition-colors">
+                <h3 className="font-medium text-lg mb-3">{item.q}</h3>
+                <p className="text-muted">{item.a}</p>
+              </div>
+            ))}
+          </div>
+        </div>
+      </section>
+
+      {/* Free Prototype Downsell */}
+      <section className="px-6 py-20">
+        <div className="max-w-2xl mx-auto">
+          <div className="relative bg-gradient-to-br from-emerald-500/10 to-teal-500/10 border border-emerald-500/30 rounded-2xl p-10 text-center overflow-hidden">
+            <div className="absolute top-0 right-0 w-40 h-40 bg-emerald-500/10 rounded-full blur-3xl -translate-y-1/2 translate-x-1/2" />
+            <div className="relative z-10">
+              <span className="inline-block px-3 py-1 mb-4 text-xs font-bold uppercase tracking-widest text-emerald-400 bg-emerald-500/20 border border-emerald-500/30 rounded-full">
+                Free
+              </span>
+              <h3 className="font-serif text-3xl md:text-4xl mb-3">
+                Not ready for $950?
+              </h3>
+              <p className="text-muted text-lg mb-8 max-w-md mx-auto">
+                Start with a free working prototype. See what we can do — no commitment, no cost.
+              </p>
+              <a
+                href="/free-prototype"
+                className="inline-flex items-center gap-3 bg-emerald-500 hover:bg-emerald-400 text-background font-semibold px-8 py-4 text-lg rounded-xl transition-all duration-300 shadow-lg shadow-emerald-500/25 hover:shadow-xl hover:shadow-emerald-500/30 hover:scale-105"
+              >
+                <span>Get a Free Prototype</span>
+                <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                </svg>
+              </a>
+            </div>
+          </div>
+        </div>
+      </section>
+
+      {/* Final CTA Section */}
       <section id="submit" className="relative px-6 py-32">
         {/* Background glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
         <div className="relative max-w-2xl mx-auto text-center">
-          <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
-            Get Started
-          </span>
           <h2 className="font-serif text-4xl md:text-5xl mb-4">
-            Ready to Build?{" "}
+            Ready to finally{" "}
             <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-              Let&apos;s Chat.
+              ship it?
             </span>
           </h2>
-          <p className="text-muted text-lg mb-10">
-            No forms. No lengthy proposals. Just a quick conversation about your idea.
-            <br />We&apos;ll reply within <span className="text-amber-500 font-medium">12 hours</span>.
+          <p className="text-muted text-lg mb-4">
+            No forms. Just tell us what you&apos;re building.
+          </p>
+          <p className={`text-sm font-medium mb-10 flex items-center justify-center gap-2 ${mvpSpotsRemaining <= 2 ? 'text-red-400' : 'text-amber-400'}`}>
+            <span className="relative flex h-2 w-2">
+              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${mvpSpotsRemaining <= 2 ? 'bg-red-400' : 'bg-amber-400'} opacity-75`}></span>
+              <span className={`relative inline-flex rounded-full h-2 w-2 ${mvpSpotsRemaining <= 2 ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+            </span>
+            {mvpSpotsRemaining > 0
+              ? `Only ${mvpSpotsRemaining} spot${mvpSpotsRemaining === 1 ? '' : 's'} available this month`
+              : 'Fully booked this month — join the waitlist'}
           </p>
 
           {alreadySubmitted ? (
@@ -835,16 +1355,22 @@ export default function MVPPage() {
               <p className="text-muted text-sm text-center max-w-sm">
                 We&apos;re reviewing your submission. Check your email for updates within 12 hours.
               </p>
+              <button
+                onClick={() => {
+                  localStorage.removeItem(STORAGE_KEY);
+                  setAlreadySubmitted(false);
+                }}
+                className="text-sm text-muted hover:text-amber-400 transition-colors underline underline-offset-4"
+              >
+                Have another idea? Start a new conversation
+              </button>
             </div>
           ) : (
             <button
               onClick={startConversation}
               className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
             >
-              <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-              </svg>
-              <span>Start Chatting — $950</span>
+              <span>Get Started — $950</span>
               <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                 <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
               </svg>
@@ -864,34 +1390,6 @@ export default function MVPPage() {
               </svg>
               No commitment until you say go
             </span>
-          </div>
-        </div>
-      </section>
-
-      {/* FAQ Section */}
-      <section className="px-6 py-24 border-t border-white/10">
-        <div className="max-w-3xl mx-auto">
-          <div className="text-center mb-16">
-            <h2 className="font-serif text-3xl md:text-4xl">
-              Questions?{" "}
-              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-                Answered.
-              </span>
-            </h2>
-          </div>
-
-          <div className="space-y-6">
-            {[
-              { q: "What if my idea is too complex for $950?", a: "We'll tell you. Some ideas need a $950 MVP to validate first. Others need more. We'll be honest about which yours is." },
-              { q: "How long does it take?", a: "Most MVPs are delivered within 5-10 days depending on complexity." },
-              { q: "What tech do you use?", a: "Modern, scalable stack — React, Next.js, Python, cloud infrastructure. Built to grow with you." },
-              { q: "Do I own the code?", a: "100%. It's yours. No lock-in, no licensing fees." }
-            ].map((item, i) => (
-              <div key={i} className="p-6 bg-white/[0.02] border border-white/10 rounded-xl hover:border-amber-500/30 transition-colors">
-                <h3 className="font-medium text-lg mb-3">{item.q}</h3>
-                <p className="text-muted">{item.a}</p>
-              </div>
-            ))}
           </div>
         </div>
       </section>

@@ -20,44 +20,46 @@ function getClientIP(request: NextRequest): string {
   return 'unknown'
 }
 
-const SYSTEM_PROMPT = `You are a friendly product consultant for a $950 MVP building service. Your job is to gather information through a natural, conversational chat to understand what the client wants to build.
+const SYSTEM_PROMPT = `You are a friendly product consultant for a $950 MVP building service. Your job is to quickly understand what the client wants to build through a fast, natural chat — then get them to the finish line.
 
-You need to collect the following information IN ORDER:
-1. User's name
-2. User's email
-3. Their product/MVP idea (let them describe it in detail)
-4. What type of MVP they need:
-   1. Web App
-   2. AI Chatbot
-   3. Voice Agent
-   4. Content Automation
-   5. Not sure
-5. What's their main goal:
-   1. Validate an idea
-   2. Demo for investors
-   3. Automate something
-   4. Launch a side project
-   5. Other
-6. Any specific features or requirements they have in mind?
-7. Do they have any existing designs, wireframes, or references?
-8. What's their timeline? (When do they need this by?)
+You collect 7 things IN THIS ORDER:
+1. **Name** — warm opener
+2. **What are you building?** — let them describe freely, encourage detail with a brief follow-up if the answer is very vague (e.g., "Tell me a bit more — what would users do on it?"). One follow-up max, then move on.
+3. **Who's this for?** — Ask about their target user/audience. Keep it casual: "Nice — **who's this for?** Who's your ideal user?" Accept short answers (e.g., "small business owners", "college students").
+4. **What's the #1 thing a user should be able to do?** — The core action. Ask: "If a user could only do **one thing** on this, what would it be?" This anchors the MVP scope.
+5. **What type of MVP fits?** — Based on what they described, present ONLY the relevant types as numbered options. Pick from:
+   - Web App — if the idea involves a platform, dashboard, marketplace, SaaS tool, or any browser-based product
+   - Mobile App — if the idea is clearly mobile-first (on-the-go use, location-based, camera, notifications)
+   - AI Chatbot — if the idea involves answering questions, customer support, knowledge base, or conversational interface
+   - Voice Agent — if the idea involves phone calls, voice booking, voice support, or hands-free interaction
+   - Content Automation — if the idea involves scheduling posts, generating content, email sequences, or repetitive content tasks
 
-IMPORTANT RULES:
+   RULES for this step:
+   - Show 2-4 options max. Never show all 5. Only show what genuinely fits the idea.
+   - If only ONE type makes sense, suggest it directly: "Based on what you described, a **Web App** sounds like the right fit. Does that work, or did you have something else in mind?"
+   - Always include a final option: "Something else" so they don't feel boxed in.
+
+6. **Timeline** — "**When do you need this?**" with numbered options:
+   1. Within 2 weeks
+   2. Within a month
+   3. No rush, exploring
+
+7. **Email** — Ask LAST: "Love it — where should we send your project brief? **What's your email?**"
+
+AFTER COLLECTING ALL 7:
+- Give a short, punchy summary of what you understood (3-4 bullet points of what the $950 MVP would include, incorporating the target audience and core feature)
+- Mention we'll review and reply within 12 hours with next steps
+- This summary is their "mini-consultation" — make it feel valuable
+
+TONE & RULES:
 - Ask ONE question at a time
-- For questions 4 and 5: Present numbered options like this:
-  1. Option one
-  2. Option two
-  (User can reply with just the number)
-- Keep responses concise (2-3 sentences max)
-- Be warm, professional, and encouraging
-- Use **bold** for the main question
-- After collecting all information, wrap up warmly:
-  - Thank them for the details
-  - Let them know we'll review and reply within 12 hours with next steps
-  - Mention the $950 flat rate includes everything discussed
-
-CONVERSATION STATE:
-Track what you've collected. When user provides info, acknowledge briefly and move to next question.
+- Keep each response to 2-3 sentences max
+- Be warm, professional, and direct — no filler
+- Use **bold** for the question
+- For numbered options, format as:
+  1. Option
+  2. Option
+  (They can reply with just the number)
 
 START by greeting them warmly and asking for their name.`
 
@@ -66,18 +68,17 @@ const PARSE_CONVERSATION_PROMPT = `Analyze this conversation and extract the fol
 {
   "name": "user's name",
   "email": "user's email",
-  "idea": "their product/MVP idea description",
-  "mvp_type": "web|chatbot|voice|automation|not-sure",
-  "goal": "validate|demo|automate|side-project|other",
-  "features": "specific features mentioned",
-  "existing_assets": "any designs/wireframes/references mentioned",
-  "timeline": "their timeline/deadline",
-  "conversation_complete": true/false (true if all 8 questions answered)
+  "idea": "their product/MVP idea — include any details they mentioned",
+  "target_audience": "who the product is for (their ideal user/customer)",
+  "core_feature": "the #1 thing a user should be able to do",
+  "mvp_type": "web|mobile|chatbot|voice|automation|other",
+  "timeline": "2weeks|1month|exploring",
+  "conversation_complete": true/false (true if all 7 questions were answered: name, idea, target_audience, core_feature, mvp_type, timeline, email)
 }
 
-Map user responses to the enum values:
-- mvp_type: "web app"/1 -> "web", "chatbot"/ai/2 -> "chatbot", "voice"/3 -> "voice", "automation"/content/4 -> "automation", "not sure"/5 -> "not-sure"
-- goal: "validate"/1 -> "validate", "demo"/investor/2 -> "demo", "automate"/3 -> "automate", "side project"/launch/4 -> "side-project", "other"/5 -> "other"
+Map user responses to enum values:
+- mvp_type: "web app" -> "web", "mobile app" -> "mobile", "chatbot"/ai -> "chatbot", "voice" -> "voice", "automation"/content -> "automation", "something else" -> "other"
+- timeline: "2 weeks"/"within 2 weeks"/1 -> "2weeks", "month"/"within a month"/2 -> "1month", "no rush"/"exploring"/3 -> "exploring"
 
 Return ONLY valid JSON, no other text.`
 
@@ -90,10 +91,9 @@ interface ParsedData {
   name?: string
   email?: string
   idea?: string
+  target_audience?: string
+  core_feature?: string
   mvp_type?: string
-  goal?: string
-  features?: string
-  existing_assets?: string
   timeline?: string
   conversation_complete?: boolean
 }
@@ -211,15 +211,14 @@ export async function POST(request: NextRequest) {
           if (shouldCreateLead) {
             try {
               const rows = await query<{ id: string }>(
-                `INSERT INTO mvp_leads (name, email, idea, mvp_type, goal, features, existing_assets, timeline)
-                 VALUES ($1, $2, $3, $4, $5, $6, $7, $8)
+                `INSERT INTO mvp_leads (name, email, idea, target_audience, core_feature, mvp_type, timeline)
+                 VALUES ($1, $2, $3, $4, $5, $6, $7)
                  ON CONFLICT (email) DO UPDATE SET
                    name = EXCLUDED.name,
                    idea = EXCLUDED.idea,
+                   target_audience = EXCLUDED.target_audience,
+                   core_feature = EXCLUDED.core_feature,
                    mvp_type = EXCLUDED.mvp_type,
-                   goal = EXCLUDED.goal,
-                   features = EXCLUDED.features,
-                   existing_assets = EXCLUDED.existing_assets,
                    timeline = EXCLUDED.timeline,
                    updated_at = NOW()
                  RETURNING id`,
@@ -227,10 +226,9 @@ export async function POST(request: NextRequest) {
                   parsedData.name,
                   parsedData.email,
                   parsedData.idea,
+                  parsedData.target_audience || null,
+                  parsedData.core_feature || null,
                   parsedData.mvp_type || null,
-                  parsedData.goal || null,
-                  parsedData.features || null,
-                  parsedData.existing_assets || null,
                   parsedData.timeline || null
                 ]
               )
@@ -248,18 +246,16 @@ export async function POST(request: NextRequest) {
             try {
               await query(
                 `UPDATE mvp_leads SET
-                  mvp_type = COALESCE($1, mvp_type),
-                  goal = COALESCE($2, goal),
-                  features = COALESCE($3, features),
-                  existing_assets = COALESCE($4, existing_assets),
-                  timeline = COALESCE($5, timeline),
+                  target_audience = COALESCE($1, target_audience),
+                  core_feature = COALESCE($2, core_feature),
+                  mvp_type = COALESCE($3, mvp_type),
+                  timeline = COALESCE($4, timeline),
                   updated_at = NOW()
-                WHERE id = $6`,
+                WHERE id = $5`,
                 [
+                  parsedData.target_audience || null,
+                  parsedData.core_feature || null,
                   parsedData.mvp_type || null,
-                  parsedData.goal || null,
-                  parsedData.features || null,
-                  parsedData.existing_assets || null,
                   parsedData.timeline || null,
                   leadId
                 ]
@@ -272,6 +268,19 @@ export async function POST(request: NextRequest) {
           if (parsedData.conversation_complete) {
             metadata.isComplete = true
             metadata.email = parsedData.email
+
+            // Save the final summary to the lead
+            const targetLeadId = metadata.leadId || leadId
+            if (targetLeadId) {
+              try {
+                await query(
+                  `UPDATE mvp_leads SET summary = $1, updated_at = NOW() WHERE id = $2`,
+                  [fullMessage, targetLeadId]
+                )
+              } catch (err) {
+                console.error('Error saving summary to lead:', err)
+              }
+            }
           }
 
           controller.enqueue(encoder.encode(`data: ${JSON.stringify({ type: 'done', ...metadata })}\n\n`))
