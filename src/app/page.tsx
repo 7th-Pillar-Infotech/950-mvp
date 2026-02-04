@@ -1,9 +1,19 @@
 "use client";
 
-import { useState, useEffect, useRef, useCallback } from "react";
+import { useState, useEffect, useRef } from "react";
 
 const STORAGE_KEY = 'mvp_submitted';
 const EMAIL_REGEX = /^[^\s@]+@[^\s@]+\.[^\s@]+$/;
+const MAX_FILE_SIZE = 10 * 1024 * 1024; // 10MB
+const ALLOWED_FILE_TYPES = [
+  'application/pdf',
+  'application/msword',
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document',
+  'text/plain',
+  'image/png',
+  'image/jpeg',
+];
+const ALLOWED_EXTENSIONS = ['pdf', 'doc', 'docx', 'txt', 'png', 'jpg', 'jpeg'];
 
 const DISPOSABLE_EMAIL_DOMAINS = [
   'tempmail.com', 'temp-mail.org', 'guerrillamail.com', 'guerrillamail.org',
@@ -21,17 +31,6 @@ const DISPOSABLE_EMAIL_DOMAINS = [
   'tempsky.com', 'trashinbox.com', 'dropmail.me', 'instantemailaddress.com',
   'crazymailing.com', 'throwawaymail.com', 'getairmail.com', 'mailcatch.com',
   'tmail.ws', 'tmpmail.org', 'tmpmail.net', 'tempmails.net', 'disposablemail.com',
-];
-
-const THINKING_MESSAGES = [
-  "Getting ready...",
-  "Nice to meet you...",
-  "Interesting...",
-  "Understanding your vision...",
-  "Thinking about the product...",
-  "Considering options...",
-  "Mapping out features...",
-  "Almost there...",
 ];
 
 const PROJECTS = [
@@ -93,41 +92,24 @@ const PROJECTS = [
 
 export default function MVPPage() {
   const [mounted, setMounted] = useState(false);
-  const [started, setStarted] = useState(false);
-  const [leadId, setLeadId] = useState<string | null>(null);
-  const [isComplete, setIsComplete] = useState(false);
-  const [userEmail, setUserEmail] = useState("");
   const [alreadySubmitted, setAlreadySubmitted] = useState(false);
-  const [waitingForEmailValidation, setWaitingForEmailValidation] = useState(false);
-
-  const [chatMessages, setChatMessages] = useState<Array<{ role: "assistant" | "user"; content: string }>>([]);
-  const [chatInput, setChatInput] = useState("");
-  const [isTyping, setIsTyping] = useState(false);
-  const [streamingText, setStreamingText] = useState("");
-  const [showConfetti, setShowConfetti] = useState(false);
-  const [messageCount, setMessageCount] = useState(0);
   const [mobileMenuOpen, setMobileMenuOpen] = useState(false);
   const [selectedProject, setSelectedProject] = useState<number | null>(null);
   const [mvpSpotsRemaining, setMvpSpotsRemaining] = useState(5);
-  const chatEndRef = useRef<HTMLDivElement>(null);
-  const inputRef = useRef<HTMLTextAreaElement>(null);
 
-  const fetchMvpSpots = useCallback(async () => {
-    try {
-      const res = await fetch('/api/spots/mvp');
-      const data = await res.json();
-      setMvpSpotsRemaining(data.spots_remaining);
-    } catch (err) {
-      console.error('Error fetching MVP spots:', err);
-    }
-  }, []);
+  // Form state
+  const [formData, setFormData] = useState({ name: '', email: '', idea: '' });
+  const [briefFile, setBriefFile] = useState<File | null>(null);
+  const [formStatus, setFormStatus] = useState<'idle' | 'submitting' | 'success' | 'error'>('idle');
+  const [formError, setFormError] = useState('');
+  const fileInputRef = useRef<HTMLInputElement>(null);
+  const formSectionRef = useRef<HTMLElement>(null);
 
   useEffect(() => {
     setMounted(true);
     fetchMvpSpots();
     const submitted = localStorage.getItem(STORAGE_KEY);
     if (submitted) {
-      // Expire after 24 hours so returning visitors aren't permanently blocked
       const timestamp = parseInt(submitted, 10);
       const isExpired = !isNaN(timestamp) && Date.now() - timestamp > 24 * 60 * 60 * 1000;
       if (submitted === 'true' || !isExpired) {
@@ -136,11 +118,7 @@ export default function MVPPage() {
         localStorage.removeItem(STORAGE_KEY);
       }
     }
-  }, [fetchMvpSpots]);
-
-  useEffect(() => {
-    chatEndRef.current?.scrollIntoView({ behavior: "smooth" });
-  }, [chatMessages, streamingText]);
+  }, []);
 
   useEffect(() => {
     const handleEscape = (e: KeyboardEvent) => {
@@ -153,7 +131,7 @@ export default function MVPPage() {
   }, [selectedProject]);
 
   useEffect(() => {
-    if (started || selectedProject !== null) {
+    if (selectedProject !== null) {
       document.body.style.overflow = "hidden";
     } else {
       document.body.style.overflow = "";
@@ -161,254 +139,111 @@ export default function MVPPage() {
     return () => {
       document.body.style.overflow = "";
     };
-  }, [started, selectedProject]);
+  }, [selectedProject]);
 
-  const startConversation = async () => {
-    setStarted(true);
-    setIsTyping(true);
-
+  const fetchMvpSpots = async () => {
     try {
-      const res = await fetch('/api/chat/mvp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({ messages: [], action: 'start' }),
-      });
-
+      const res = await fetch('/api/spots/mvp');
       const data = await res.json();
-      setChatMessages([{ role: "assistant", content: data.message }]);
-    } catch {
-      setChatMessages([{
-        role: "assistant",
-        content: "Hey there! 👋 I'm here to help you get started with your $950 MVP.\n\nLet's chat about what you're looking to build. **What's your name?**"
-      }]);
-    }
-    setIsTyping(false);
-  };
-
-  const sendMessage = useCallback(async (input: string) => {
-    const trimmedInput = input.trim();
-    if (!trimmedInput || isTyping || waitingForEmailValidation) return;
-
-    // Check if the bot just asked for an email (last assistant message contains "email")
-    const lastAssistant = chatMessages.filter(m => m.role === "assistant").pop();
-    const botAskedForEmail = lastAssistant?.content.toLowerCase().includes("email");
-    const looksLikeEmail = trimmedInput.includes('@');
-
-    if (botAskedForEmail && looksLikeEmail) {
-      if (!EMAIL_REGEX.test(trimmedInput)) {
-        setChatMessages([
-          ...chatMessages,
-          { role: "user", content: trimmedInput },
-          { role: "assistant", content: "Hmm, that doesn't look like a valid email address. Could you double-check it?\n\n**What's your email?**" }
-        ]);
-        return;
-      }
-
-      const emailDomain = trimmedInput.toLowerCase().split('@')[1];
-      if (DISPOSABLE_EMAIL_DOMAINS.includes(emailDomain)) {
-        setChatMessages([
-          ...chatMessages,
-          { role: "user", content: trimmedInput },
-          { role: "assistant", content: "We don't accept temporary or disposable email addresses. Please use your real email so we can follow up with you!\n\n**What's your email?**" }
-        ]);
-        return;
-      }
-    }
-
-    const newMessages = [...chatMessages, { role: "user" as const, content: trimmedInput }];
-    setChatMessages(newMessages);
-    setChatInput("");
-    setIsTyping(true);
-    setStreamingText("");
-    setMessageCount(prev => prev + 1);
-
-    try {
-      const res = await fetch('/api/chat/mvp', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify({
-          messages: newMessages,
-          leadId,
-        }),
-      });
-
-      // Handle rate limit or ban errors
-      if (res.status === 429 || res.status === 403) {
-        await handleApiError(res, newMessages);
-        setStreamingText("");
-        setIsTyping(false);
-        return;
-      }
-
-      if (!res.body) throw new Error('No response body');
-
-      const reader = res.body.getReader();
-      const decoder = new TextDecoder();
-      let fullText = '';
-
-      while (true) {
-        const { done, value } = await reader.read();
-        if (done) break;
-
-        const chunk = decoder.decode(value);
-        const lines = chunk.split('\n');
-
-        for (const line of lines) {
-          if (line.startsWith('data: ')) {
-            try {
-              const data = JSON.parse(line.slice(6));
-
-              if (data.type === 'text') {
-                fullText += data.content;
-                setStreamingText(fullText);
-              } else if (data.type === 'message_done') {
-                setChatMessages([...newMessages, { role: "assistant", content: fullText }]);
-                setStreamingText("");
-                setIsTyping(false);
-                setTimeout(() => inputRef.current?.focus(), 50);
-              } else if (data.type === 'done') {
-                if (data.leadCreated && data.leadId) {
-                  setLeadId(data.leadId);
-                }
-
-                if (data.email) {
-                  setUserEmail(data.email);
-                }
-
-                if (data.isComplete) {
-                  setIsComplete(true);
-                  setShowConfetti(true);
-                  setTimeout(() => setShowConfetti(false), 3000);
-                  localStorage.setItem(STORAGE_KEY, Date.now().toString());
-                  setAlreadySubmitted(true);
-
-                  // Decrement monthly spots
-                  fetch('/api/spots/mvp', { method: 'POST' })
-                    .then(res => res.json())
-                    .then(spotData => {
-                      if (spotData.spots_remaining !== undefined) {
-                        setMvpSpotsRemaining(spotData.spots_remaining);
-                      }
-                    })
-                    .catch(() => {});
-                }
-              } else if (data.type === 'error') {
-                setChatMessages([
-                  ...newMessages,
-                  { role: "assistant", content: "Sorry, I had a hiccup. Could you try that again?" }
-                ]);
-                setStreamingText("");
-              }
-            } catch {
-              // Ignore parse errors
-            }
-          }
-        }
-      }
+      setMvpSpotsRemaining(data.spots_remaining);
     } catch (err) {
-      console.error('Stream error:', err);
-      setChatMessages([
-        ...newMessages,
-        { role: "assistant", content: "Sorry, something went wrong. Please try again." }
-      ]);
-      setStreamingText("");
-      setIsTyping(false);
+      console.error('Error fetching MVP spots:', err);
     }
-  }, [chatMessages, isTyping, waitingForEmailValidation, leadId]);
-
-  // Handle rate limit/ban errors
-  const handleApiError = async (res: Response, newMessages: Array<{ role: "assistant" | "user"; content: string }>) => {
-    if (res.status === 429) {
-      const data = await res.json();
-      setChatMessages([
-        ...newMessages,
-        { role: "assistant", content: `Whoa, slow down! ${data.error || "Too many messages too quickly."} Please wait a moment before trying again.` }
-      ]);
-      return true;
-    }
-    if (res.status === 403) {
-      const data = await res.json();
-      setChatMessages([
-        ...newMessages,
-        { role: "assistant", content: data.error || "You have been temporarily blocked. Please try again later." }
-      ]);
-      return true;
-    }
-    return false;
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    sendMessage(chatInput);
+  const scrollToForm = () => {
+    formSectionRef.current?.scrollIntoView({ behavior: 'smooth' });
   };
 
-  const handleQuickReply = (num: number) => {
-    sendMessage(num.toString());
-  };
-
-  const getNumberedOptions = () => {
-    if (chatMessages.length === 0) return null;
-    const lastAssistant = chatMessages.filter(m => m.role === "assistant").pop();
-    if (!lastAssistant) return null;
-
-    const matches = lastAssistant.content.match(/^[1-5]\.\s+.+$/gm);
-    if (matches && matches.length >= 2) {
-      return matches.map((m, i) => ({
-        num: i + 1,
-        text: m.replace(/^[1-5]\.\s+/, '').trim()
-      }));
+  const validateFile = (file: File): string | null => {
+    if (file.size > MAX_FILE_SIZE) {
+      return 'File must be under 10MB';
+    }
+    const ext = file.name.split('.').pop()?.toLowerCase();
+    if (!ext || !ALLOWED_EXTENSIONS.includes(ext)) {
+      return 'Allowed formats: PDF, DOC, DOCX, TXT, PNG, JPG';
+    }
+    if (!ALLOWED_FILE_TYPES.includes(file.type) && file.type !== '') {
+      return 'Allowed formats: PDF, DOC, DOCX, TXT, PNG, JPG';
     }
     return null;
   };
 
-  const numberedOptions = getNumberedOptions();
-  const thinkingMessage = THINKING_MESSAGES[Math.min(messageCount, THINKING_MESSAGES.length - 1)];
-
-  const getUserInitial = () => {
-    const firstUserMsg = chatMessages.find(m => m.role === "user");
-    if (firstUserMsg && chatMessages.indexOf(firstUserMsg) === 1) {
-      return firstUserMsg.content.trim()[0]?.toUpperCase() || "U";
+  const handleFileChange = (files: FileList | null) => {
+    if (!files || files.length === 0) return;
+    const file = files[0];
+    const error = validateFile(file);
+    if (error) {
+      setFormError(error);
+      return;
     }
-    return "U";
+    setFormError('');
+    setBriefFile(file);
   };
 
-  const renderText = (text: string) => {
-    // Escape HTML entities first to prevent XSS
-    const escaped = text
-      .replace(/&/g, '&amp;')
-      .replace(/</g, '&lt;')
-      .replace(/>/g, '&gt;')
-      .replace(/"/g, '&quot;');
-    // Then apply markdown formatting on the safe string
-    return escaped
-      .replace(/\*\*(.*?)\*\*/g, '<strong>$1</strong>')
-      .replace(/\[(.*?)\]\((.*?)\)/g, '<a href="$2" target="_blank" rel="noopener noreferrer" class="text-amber-400 hover:text-amber-300">$1</a>');
+  const handleDrop = (e: React.DragEvent) => {
+    e.preventDefault();
+    handleFileChange(e.dataTransfer.files);
+  };
+
+  const formatFileSize = (bytes: number): string => {
+    if (bytes < 1024) return `${bytes} B`;
+    if (bytes < 1024 * 1024) return `${(bytes / 1024).toFixed(1)} KB`;
+    return `${(bytes / (1024 * 1024)).toFixed(1)} MB`;
+  };
+
+  const handleFormSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setFormError('');
+
+    // Validate
+    if (!formData.name.trim() || !formData.email.trim() || !formData.idea.trim()) {
+      setFormError('Please fill in all required fields.');
+      return;
+    }
+    if (!EMAIL_REGEX.test(formData.email.trim())) {
+      setFormError('Please enter a valid email address.');
+      return;
+    }
+    const emailDomain = formData.email.trim().toLowerCase().split('@')[1];
+    if (DISPOSABLE_EMAIL_DOMAINS.includes(emailDomain)) {
+      setFormError('Please use a real email address, not a temporary one.');
+      return;
+    }
+
+    setFormStatus('submitting');
+
+    try {
+      const body = new FormData();
+      body.append('name', formData.name.trim());
+      body.append('email', formData.email.trim());
+      body.append('idea', formData.idea.trim());
+      if (briefFile) {
+        body.append('brief', briefFile);
+      }
+
+      const res = await fetch('/api/leads/mvp', { method: 'POST', body });
+
+      if (!res.ok) {
+        const data = await res.json();
+        setFormError(data.error || 'Something went wrong. Please try again.');
+        setFormStatus('error');
+        return;
+      }
+
+      setFormStatus('success');
+      localStorage.setItem(STORAGE_KEY, Date.now().toString());
+      setAlreadySubmitted(true);
+      fetchMvpSpots();
+    } catch {
+      setFormError('Something went wrong. Please try again.');
+      setFormStatus('error');
+    }
   };
 
   return (
     <main className="min-h-screen overflow-x-hidden">
-      {/* Confetti */}
-      {showConfetti && (
-        <div className="fixed inset-0 pointer-events-none z-50 overflow-hidden">
-          {[...Array(50)].map((_, i) => (
-            <div
-              key={i}
-              className="absolute w-3 h-3 animate-confetti"
-              style={{
-                left: `${Math.random() * 100}%`,
-                top: `-5%`,
-                backgroundColor: ['#f59e0b', '#10b981', '#3b82f6', '#ec4899', '#8b5cf6'][Math.floor(Math.random() * 5)],
-                animationDelay: `${Math.random() * 2}s`,
-                animationDuration: `${2 + Math.random() * 2}s`,
-                transform: `rotate(${Math.random() * 360}deg)`,
-              }}
-            />
-          ))}
-        </div>
-      )}
-
-      {/* Header - only show when not in chat */}
-      {!started && (
+      {/* Header */}
       <header className="fixed top-0 left-0 right-0 z-40 px-6 py-4 bg-background/80 backdrop-blur-md border-b border-white/5">
         <div className="max-w-6xl mx-auto flex items-center justify-between">
           {/* Logo */}
@@ -437,7 +272,7 @@ export default function MVPPage() {
               Our Agency
             </a>
             <button
-              onClick={startConversation}
+              onClick={scrollToForm}
               className="text-sm font-medium px-4 py-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background rounded-lg transition-all shadow-md shadow-amber-500/20"
             >
               Get Started
@@ -485,7 +320,7 @@ export default function MVPPage() {
               <button
                 onClick={() => {
                   setMobileMenuOpen(false);
-                  startConversation();
+                  scrollToForm();
                 }}
                 className="text-sm font-medium px-4 py-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background rounded-lg transition-all shadow-md shadow-amber-500/20 w-full"
               >
@@ -495,18 +330,13 @@ export default function MVPPage() {
           </div>
         )}
       </header>
-      )}
 
-      {!started ? (
-      <>
       {/* Hero Section */}
       <section className="relative min-h-screen flex items-center justify-center px-6 py-20 pt-24 overflow-hidden">
-        {/* Animated gradient background */}
+        {/* Static gradient background */}
         <div className="absolute inset-0 bg-gradient-to-br from-background via-background to-amber-950/20" />
 
-        {/* Animated orbs */}
-        <div className="absolute top-1/4 -left-32 w-96 h-96 bg-amber-500/10 rounded-full blur-3xl animate-float" />
-        <div className="absolute bottom-1/4 -right-32 w-80 h-80 bg-amber-600/10 rounded-full blur-3xl animate-float-delayed" />
+        {/* Static ambient glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/5 rounded-full blur-3xl" />
 
         {/* Grid pattern overlay */}
@@ -518,18 +348,12 @@ export default function MVPPage() {
           }}
         />
 
-        {/* Geometric accents */}
-        <div className="absolute top-20 right-20 w-72 h-72 border border-amber-500/20 rotate-45 animate-spin-slow" />
-        <div className="absolute top-24 right-24 w-64 h-64 border border-amber-500/10 rotate-45 animate-spin-slow-reverse" />
-        <div className="absolute bottom-32 left-16 w-40 h-40 border-2 border-amber-500/20 rotate-12 animate-pulse" />
-
         <div className="relative max-w-5xl mx-auto text-center z-10">
           {/* Urgency badge */}
           <div
             className={`inline-flex items-center gap-2 px-4 py-1.5 mb-4 ${mvpSpotsRemaining <= 2 ? 'bg-red-500/10 border-red-500/30 text-red-400' : 'bg-amber-500/10 border-amber-500/30 text-amber-400'} border rounded-full text-sm font-medium transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
           >
             <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${mvpSpotsRemaining <= 2 ? 'bg-red-400' : 'bg-amber-400'} opacity-75`}></span>
               <span className={`relative inline-flex rounded-full h-2 w-2 ${mvpSpotsRemaining <= 2 ? 'bg-red-500' : 'bg-amber-500'}`}></span>
             </span>
             {mvpSpotsRemaining > 0
@@ -542,7 +366,6 @@ export default function MVPPage() {
             className={`inline-flex items-center gap-3 px-5 py-2.5 mb-10 bg-white/5 backdrop-blur-sm border border-white/10 rounded-full text-sm text-muted transition-all duration-700 ${mounted ? 'opacity-100 translate-y-0' : 'opacity-0 translate-y-4'}`}
           >
             <span className="relative flex h-2 w-2">
-              <span className="animate-ping absolute inline-flex h-full w-full rounded-full bg-amber-400 opacity-75"></span>
               <span className="relative inline-flex rounded-full h-2 w-2 bg-amber-500"></span>
             </span>
             <span className="tracking-wide">Web Apps &bull; Mobile &bull; AI Agents &bull; Voice &bull; Automation</span>
@@ -600,20 +423,18 @@ export default function MVPPage() {
                   onClick={() => {
                     localStorage.removeItem(STORAGE_KEY);
                     setAlreadySubmitted(false);
+                    setFormStatus('idle');
                   }}
                   className="text-sm text-muted hover:text-amber-400 transition-colors underline underline-offset-4"
                 >
-                  Have another idea? Start a new conversation
+                  Have another idea? Submit again
                 </button>
               </div>
             ) : (
               <button
-                onClick={startConversation}
+                onClick={scrollToForm}
                 className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
               >
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M8 12h.01M12 12h.01M16 12h.01M21 12c0 4.418-4.03 8-9 8a9.863 9.863 0 01-4.255-.949L3 20l1.395-3.72C3.512 15.042 3 13.574 3 12c0-4.418 4.03-8 9-8s9 3.582 9 8z" />
-                </svg>
                 <span className="relative z-10">Tell Us What You&apos;re Building</span>
                 <svg
                   className="relative z-10 w-5 h-5 transition-transform group-hover:translate-x-2"
@@ -657,7 +478,7 @@ export default function MVPPage() {
         <div className="absolute bottom-6 left-1/2 -translate-x-1/2 flex flex-col items-center gap-2">
           <span className="text-xs text-muted uppercase tracking-widest">Scroll</span>
           <div className="w-6 h-10 border-2 border-muted/30 rounded-full flex justify-center pt-2">
-            <div className="w-1 h-2 bg-amber-500 rounded-full animate-bounce" />
+            <div className="w-1 h-2 bg-amber-500 rounded-full" />
           </div>
         </div>
       </section>
@@ -737,7 +558,7 @@ export default function MVPPage() {
 
           {/* Modal content */}
           <div
-            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-card border border-white/10 rounded-2xl shadow-2xl animate-zoom-in"
+            className="relative w-full max-w-3xl max-h-[90vh] overflow-y-auto bg-card border border-white/10 rounded-2xl shadow-2xl"
             onClick={(e) => e.stopPropagation()}
           >
             {/* Close button */}
@@ -782,7 +603,7 @@ export default function MVPPage() {
 
               <div className="flex flex-col sm:flex-row gap-4">
                 <button
-                  onClick={startConversation}
+                  onClick={scrollToForm}
                   className="inline-flex items-center justify-center gap-2 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-6 py-3 rounded-xl transition-all shadow-lg shadow-amber-500/25"
                 >
                   Build Something Like This — $950
@@ -1041,7 +862,7 @@ export default function MVPPage() {
           {/* Mid-page CTA */}
           <div className="text-center mt-16">
             <button
-              onClick={startConversation}
+              onClick={scrollToForm}
               className="group inline-flex items-center gap-2 text-amber-400 hover:text-amber-300 font-medium transition-colors"
             >
               <span>Ready? Tell us what you&apos;re building</span>
@@ -1071,7 +892,7 @@ export default function MVPPage() {
               {
                 step: "01",
                 title: "Tell us your idea",
-                description: "2-minute chat, no forms. Just tell us what you\u2019re building.",
+                description: "Fill out the form below. Attach a brief if you have one.",
               },
               {
                 step: "02",
@@ -1097,7 +918,7 @@ export default function MVPPage() {
           {/* Mid-page CTA */}
           <div className="text-center mt-16">
             <button
-              onClick={startConversation}
+              onClick={scrollToForm}
               className="group inline-flex items-center gap-3 bg-amber-500/10 hover:bg-amber-500/20 border border-amber-500/30 hover:border-amber-500/50 text-amber-400 font-medium px-8 py-4 rounded-xl transition-all duration-300"
             >
               <span>Start Your $950 MVP</span>
@@ -1194,7 +1015,7 @@ export default function MVPPage() {
             <p className="text-muted text-lg mb-6">Stop letting good ideas die in your backlog.</p>
             {!alreadySubmitted && (
               <button
-                onClick={startConversation}
+                onClick={scrollToForm}
                 className="group inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-8 py-4 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
               >
                 <span>Revive Your Project — $950</span>
@@ -1230,7 +1051,7 @@ export default function MVPPage() {
                 role: "Solo Founder, SaaS",
               },
               {
-                quote: "I&apos;d been quoted $15K by agencies. These guys shipped something better for a fraction. Code was clean, handoff was smooth.",
+                quote: "I\u2019d been quoted $15K by agencies. These guys shipped something better for a fraction. Code was clean, handoff was smooth.",
                 name: "Marcus Chen",
                 role: "Technical Co-founder",
               },
@@ -1319,78 +1140,197 @@ export default function MVPPage() {
         </div>
       </section>
 
-      {/* Final CTA Section */}
-      <section id="submit" className="relative px-6 py-32">
+      {/* Lead Form Section */}
+      <section ref={formSectionRef} id="get-started" className="relative px-6 py-32">
         {/* Background glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
-        <div className="relative max-w-2xl mx-auto text-center">
-          <h2 className="font-serif text-4xl md:text-5xl mb-4">
-            Ready to finally{" "}
-            <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
-              ship it?
-            </span>
-          </h2>
-          <p className="text-muted text-lg mb-4">
-            No forms. Just tell us what you&apos;re building.
-          </p>
-          <p className={`text-sm font-medium mb-10 flex items-center justify-center gap-2 ${mvpSpotsRemaining <= 2 ? 'text-red-400' : 'text-amber-400'}`}>
-            <span className="relative flex h-2 w-2">
-              <span className={`animate-ping absolute inline-flex h-full w-full rounded-full ${mvpSpotsRemaining <= 2 ? 'bg-red-400' : 'bg-amber-400'} opacity-75`}></span>
-              <span className={`relative inline-flex rounded-full h-2 w-2 ${mvpSpotsRemaining <= 2 ? 'bg-red-500' : 'bg-amber-500'}`}></span>
-            </span>
-            {mvpSpotsRemaining > 0
-              ? `Only ${mvpSpotsRemaining} spot${mvpSpotsRemaining === 1 ? '' : 's'} available this month`
-              : 'Fully booked this month — join the waitlist'}
-          </p>
+        <div className="relative max-w-2xl mx-auto">
+          <div className="text-center mb-10">
+            <h2 className="font-serif text-4xl md:text-5xl mb-4">
+              Tell us what you&apos;re{" "}
+              <span className="bg-gradient-to-r from-amber-400 to-orange-500 bg-clip-text text-transparent">
+                building
+              </span>
+            </h2>
+            <p className="text-muted text-lg mb-4">
+              Fill out the form below and we&apos;ll get back to you within 12 hours.
+            </p>
+            <p className={`text-sm font-medium flex items-center justify-center gap-2 ${mvpSpotsRemaining <= 2 ? 'text-red-400' : 'text-amber-400'}`}>
+              <span className="relative flex h-2 w-2">
+                <span className={`relative inline-flex rounded-full h-2 w-2 ${mvpSpotsRemaining <= 2 ? 'bg-red-500' : 'bg-amber-500'}`}></span>
+              </span>
+              {mvpSpotsRemaining > 0
+                ? `Only ${mvpSpotsRemaining} spot${mvpSpotsRemaining === 1 ? '' : 's'} available this month`
+                : 'Fully booked this month — join the waitlist'}
+            </p>
+          </div>
 
-          {alreadySubmitted ? (
-            <div className="inline-flex flex-col items-center gap-4 bg-emerald-500/10 border border-emerald-500/30 rounded-2xl px-8 py-6">
-              <div className="flex items-center gap-3 text-emerald-400">
-                <svg className="w-6 h-6" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12l2 2 4-4m6 2a9 9 0 11-18 0 9 9 0 0118 0z" />
+          {alreadySubmitted || formStatus === 'success' ? (
+            <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-8 text-center">
+              <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full text-white shadow-xl shadow-emerald-500/40">
+                <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                  <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
                 </svg>
-                <span className="font-medium">You&apos;ve already submitted a request!</span>
               </div>
-              <p className="text-muted text-sm text-center max-w-sm">
-                We&apos;re reviewing your submission. Check your email for updates within 12 hours.
+              <h3 className="font-serif text-2xl mb-2">Got it!</h3>
+              <p className="text-muted text-sm mb-4">
+                We&apos;ll review your requirements and get back to you within 12 hours.
               </p>
               <button
                 onClick={() => {
                   localStorage.removeItem(STORAGE_KEY);
                   setAlreadySubmitted(false);
+                  setFormStatus('idle');
+                  setFormData({ name: '', email: '', idea: '' });
+                  setBriefFile(null);
                 }}
                 className="text-sm text-muted hover:text-amber-400 transition-colors underline underline-offset-4"
               >
-                Have another idea? Start a new conversation
+                Have another idea? Submit again
               </button>
             </div>
           ) : (
-            <button
-              onClick={startConversation}
-              className="group relative inline-flex items-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 hover:scale-105"
-            >
-              <span>Get Started — $950</span>
-              <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-              </svg>
-            </button>
-          )}
+            <form onSubmit={handleFormSubmit} className="space-y-6 bg-white/[0.03] border border-white/10 rounded-2xl p-8">
+              {/* Name */}
+              <div>
+                <label htmlFor="name" className="block text-sm font-medium mb-2">Name <span className="text-amber-500">*</span></label>
+                <input
+                  id="name"
+                  type="text"
+                  required
+                  value={formData.name}
+                  onChange={(e) => setFormData(prev => ({ ...prev, name: e.target.value }))}
+                  placeholder="Your name"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all placeholder:text-muted/50"
+                />
+              </div>
 
-          <div className="flex flex-wrap justify-center gap-6 mt-8 text-sm text-muted">
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              Reply within 12 hours
-            </span>
-            <span className="flex items-center gap-2">
-              <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
-                <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
-              </svg>
-              No commitment until you say go
-            </span>
-          </div>
+              {/* Email */}
+              <div>
+                <label htmlFor="email" className="block text-sm font-medium mb-2">Email <span className="text-amber-500">*</span></label>
+                <input
+                  id="email"
+                  type="email"
+                  required
+                  value={formData.email}
+                  onChange={(e) => setFormData(prev => ({ ...prev, email: e.target.value }))}
+                  placeholder="you@company.com"
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all placeholder:text-muted/50"
+                />
+              </div>
+
+              {/* Idea */}
+              <div>
+                <label htmlFor="idea" className="block text-sm font-medium mb-2">Describe your idea <span className="text-amber-500">*</span></label>
+                <textarea
+                  id="idea"
+                  required
+                  value={formData.idea}
+                  onChange={(e) => setFormData(prev => ({ ...prev, idea: e.target.value }))}
+                  placeholder="What are you building? What problem does it solve? Who is it for?"
+                  rows={5}
+                  className="w-full bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all placeholder:text-muted/50 resize-none"
+                />
+              </div>
+
+              {/* File Upload */}
+              <div>
+                <label className="block text-sm font-medium mb-2">Upload a brief <span className="text-muted">(optional)</span></label>
+                {briefFile ? (
+                  <div className="flex items-center gap-3 bg-white/5 border border-white/10 rounded-xl px-4 py-3">
+                    <svg className="w-5 h-5 text-amber-500 flex-shrink-0" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M9 12h6m-6 4h6m2 5H7a2 2 0 01-2-2V5a2 2 0 012-2h5.586a1 1 0 01.707.293l5.414 5.414a1 1 0 01.293.707V19a2 2 0 01-2 2z" />
+                    </svg>
+                    <div className="flex-1 min-w-0">
+                      <p className="text-sm truncate">{briefFile.name}</p>
+                      <p className="text-xs text-muted">{formatFileSize(briefFile.size)}</p>
+                    </div>
+                    <button
+                      type="button"
+                      onClick={() => {
+                        setBriefFile(null);
+                        if (fileInputRef.current) fileInputRef.current.value = '';
+                      }}
+                      className="p-1 text-muted hover:text-red-400 transition-colors"
+                    >
+                      <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M6 18L18 6M6 6l12 12" />
+                      </svg>
+                    </button>
+                  </div>
+                ) : (
+                  <div
+                    onDragOver={(e) => e.preventDefault()}
+                    onDrop={handleDrop}
+                    onClick={() => fileInputRef.current?.click()}
+                    className="border-2 border-dashed border-white/10 hover:border-amber-500/30 rounded-xl px-4 py-8 text-center cursor-pointer transition-colors"
+                  >
+                    <svg className="w-8 h-8 text-muted mx-auto mb-2" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M7 16a4 4 0 01-.88-7.903A5 5 0 1115.9 6L16 6a5 5 0 011 9.9M15 13l-3-3m0 0l-3 3m3-3v12" />
+                    </svg>
+                    <p className="text-sm text-muted">
+                      Drag & drop or <span className="text-amber-400">browse</span>
+                    </p>
+                    <p className="text-xs text-muted/60 mt-1">PDF, DOC, DOCX, TXT, PNG, JPG — 10MB max</p>
+                  </div>
+                )}
+                <input
+                  ref={fileInputRef}
+                  type="file"
+                  className="hidden"
+                  accept=".pdf,.doc,.docx,.txt,.png,.jpg,.jpeg"
+                  onChange={(e) => handleFileChange(e.target.files)}
+                />
+              </div>
+
+              {/* Error */}
+              {formError && (
+                <div className="text-red-400 text-sm bg-red-500/10 border border-red-500/20 rounded-xl px-4 py-3">
+                  {formError}
+                </div>
+              )}
+
+              {/* Submit */}
+              <button
+                type="submit"
+                disabled={formStatus === 'submitting'}
+                className="w-full group relative inline-flex items-center justify-center gap-3 bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-60 disabled:cursor-not-allowed text-background font-semibold px-10 py-5 text-lg transition-all duration-300 shadow-lg shadow-amber-500/25 hover:shadow-xl hover:shadow-amber-500/30 rounded-xl"
+              >
+                {formStatus === 'submitting' ? (
+                  <>
+                    <svg className="w-5 h-5 animate-spin" fill="none" viewBox="0 0 24 24">
+                      <circle className="opacity-25" cx="12" cy="12" r="10" stroke="currentColor" strokeWidth="4" />
+                      <path className="opacity-75" fill="currentColor" d="M4 12a8 8 0 018-8V0C5.373 0 0 5.373 0 12h4zm2 5.291A7.962 7.962 0 014 12H0c0 3.042 1.135 5.824 3 7.938l3-2.647z" />
+                    </svg>
+                    <span>Submitting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span>Get Started — $950</span>
+                    <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
+                      <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
+                    </svg>
+                  </>
+                )}
+              </button>
+
+              <div className="flex flex-wrap justify-center gap-6 text-sm text-muted">
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  Reply within 12 hours
+                </span>
+                <span className="flex items-center gap-2">
+                  <svg className="w-4 h-4 text-amber-500" fill="currentColor" viewBox="0 0 20 20">
+                    <path fillRule="evenodd" d="M10 18a8 8 0 100-16 8 8 0 000 16zm3.707-9.293a1 1 0 00-1.414-1.414L9 10.586 7.707 9.293a1 1 0 00-1.414 1.414l2 2a1 1 0 001.414 0l4-4z" clipRule="evenodd" />
+                  </svg>
+                  No commitment until you say go
+                </span>
+              </div>
+            </form>
+          )}
         </div>
       </section>
 
@@ -1438,202 +1378,6 @@ export default function MVPPage() {
           </div>
         </div>
       </footer>
-      </>
-      ) : (
-        /* Full-screen chat */
-        <div className="fixed inset-0 z-50 flex flex-col bg-background">
-          {/* Chat header */}
-          <div className="px-6 py-4 border-b border-white/10 flex-shrink-0 bg-card">
-            <div className="max-w-3xl mx-auto flex items-center justify-between">
-              <div className="flex items-center gap-3">
-                <button
-                  onClick={() => {
-                    setStarted(false);
-                    setChatMessages([]);
-                    setStreamingText("");
-                    setIsTyping(false);
-                    setMessageCount(0);
-                  }}
-                  className="p-2 -ml-2 text-muted hover:text-foreground hover:bg-white/5 rounded-lg transition-colors"
-                  title="Back to home"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M10 19l-7-7m0 0l7-7m-7 7h18" />
-                  </svg>
-                </button>
-                <div className="w-10 h-10 rounded-full bg-gradient-to-br from-amber-500 to-orange-500 flex items-center justify-center text-background font-bold shadow-lg shadow-amber-500/30">
-                  AI
-                </div>
-                <div>
-                  <div className="font-medium">MVP Consultant</div>
-                  <div className="text-xs text-emerald-400 flex items-center gap-1">
-                    <span className="w-2 h-2 bg-emerald-400 rounded-full animate-pulse" />
-                    Online
-                  </div>
-                </div>
-              </div>
-              {/* Price indicator */}
-              <div className="flex items-center gap-2 px-4 py-2 rounded-full bg-amber-500/10 text-amber-400">
-                <span className="font-serif font-bold text-lg">$950</span>
-                <span className="text-muted text-sm">flat rate</span>
-              </div>
-            </div>
-          </div>
-
-          {/* Chat messages */}
-          <div className="flex-1 overflow-y-auto p-5 md:p-8">
-            <div className="max-w-3xl mx-auto space-y-4">
-              {chatMessages.map((msg, i) => (
-                <div key={i} className="flex gap-3 items-start">
-                  <div className={`w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold ${
-                    msg.role === "user"
-                      ? "bg-amber-500/30 text-amber-400 border border-amber-500/50"
-                      : "bg-gradient-to-br from-amber-500 to-orange-500 text-background"
-                  }`}>
-                    {msg.role === "user" ? getUserInitial() : "AI"}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-muted mb-1 font-medium">
-                      {msg.role === "user" ? "You" : "MVP Consultant"}
-                    </div>
-                    <div className={`rounded-2xl rounded-tl-sm px-4 py-3 ${
-                      msg.role === "user"
-                        ? "bg-amber-500/15 border border-amber-500/30"
-                        : "bg-white/[0.08] border border-white/10"
-                    }`}>
-                      <div
-                        className="whitespace-pre-wrap text-sm leading-relaxed prose prose-invert prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: renderText(msg.content) }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              ))}
-
-              {/* Streaming text */}
-              {streamingText && (
-                <div className="flex gap-3 items-start animate-fade-in">
-                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold bg-gradient-to-br from-amber-500 to-orange-500 text-background">
-                    AI
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-xs text-muted mb-1 font-medium">MVP Consultant</div>
-                    <div className="rounded-2xl rounded-tl-sm px-4 py-3 bg-white/[0.08] border border-white/10">
-                      <div
-                        className="whitespace-pre-wrap text-sm leading-relaxed prose prose-invert prose-sm max-w-none"
-                        dangerouslySetInnerHTML={{ __html: renderText(streamingText) }}
-                      />
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Typing indicator */}
-              {isTyping && !streamingText && (
-                <div className="flex gap-3 items-start animate-fade-in">
-                  <div className="w-8 h-8 rounded-full flex-shrink-0 flex items-center justify-center text-xs font-bold bg-gradient-to-br from-amber-500 to-orange-500 text-background">
-                    AI
-                  </div>
-                  <div className="flex-1">
-                    <div className="text-xs text-muted mb-1 font-medium">MVP Consultant</div>
-                    <div className="bg-white/[0.08] border border-white/10 rounded-2xl rounded-tl-sm px-4 py-3 inline-flex items-center gap-3">
-                      <div className="flex gap-1">
-                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" />
-                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: "0.15s" }} />
-                        <span className="w-1.5 h-1.5 bg-amber-500 rounded-full animate-bounce" style={{ animationDelay: "0.3s" }} />
-                      </div>
-                      <span className="text-sm text-muted italic">{thinkingMessage}</span>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {/* Success state */}
-              {isComplete && !isTyping && (
-                <div className="flex justify-center py-8 animate-fade-in">
-                  <div className="bg-emerald-500/10 border border-emerald-500/30 rounded-2xl p-6 text-center max-w-md">
-                    <div className="w-16 h-16 mx-auto mb-4 flex items-center justify-center bg-gradient-to-br from-emerald-500 to-emerald-600 rounded-full text-white shadow-xl shadow-emerald-500/40">
-                      <svg className="w-8 h-8" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2.5} d="M5 13l4 4L19 7" />
-                      </svg>
-                    </div>
-                    <h3 className="font-serif text-2xl mb-2">Got it!</h3>
-                    <p className="text-muted text-sm mb-4">
-                      We&apos;ll review your requirements and get back to you at <span className="text-foreground font-medium">{userEmail}</span> within 12 hours.
-                    </p>
-                    <a
-                      href="/free-prototype"
-                      className="inline-flex items-center gap-2 text-emerald-400 hover:text-emerald-300 text-sm font-medium"
-                    >
-                      Or try our Free Prototype
-                      <svg className="w-4 h-4" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                        <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
-                      </svg>
-                    </a>
-                  </div>
-                </div>
-              )}
-
-              <div ref={chatEndRef} />
-            </div>
-          </div>
-
-          {/* Quick reply buttons */}
-          {numberedOptions && !isTyping && !isComplete && (
-            <div className="px-4 md:px-6 pb-2 flex-shrink-0">
-              <div className="max-w-3xl mx-auto flex flex-wrap gap-2">
-                {numberedOptions.map((opt) => (
-                  <button
-                    key={opt.num}
-                    onClick={() => handleQuickReply(opt.num)}
-                    className="inline-flex items-center gap-2 px-4 py-2 bg-white/5 border border-white/10 rounded-xl hover:bg-amber-500/10 hover:border-amber-500/30 transition-all text-sm"
-                  >
-                    <span className="w-6 h-6 flex items-center justify-center bg-amber-500/20 text-amber-400 rounded-full text-xs font-bold">
-                      {opt.num}
-                    </span>
-                    <span className="text-muted">{opt.text}</span>
-                  </button>
-                ))}
-              </div>
-            </div>
-          )}
-
-          {/* Chat input */}
-          {!isComplete && (
-            <form onSubmit={handleSubmit} className="p-4 md:p-6 border-t border-white/10 bg-card flex-shrink-0">
-              <div className="max-w-3xl mx-auto flex gap-3">
-                <textarea
-                  ref={inputRef}
-                  value={chatInput}
-                  onChange={(e) => setChatInput(e.target.value)}
-                  onKeyDown={(e) => {
-                    if (e.key === 'Enter' && !e.shiftKey) {
-                      e.preventDefault();
-                      if (chatInput.trim() && !isTyping) {
-                        sendMessage(chatInput);
-                      }
-                    }
-                  }}
-                  placeholder={numberedOptions ? "Or type your answer..." : "Type your message..."}
-                  className="flex-1 bg-white/5 border border-white/10 rounded-xl px-4 py-3 focus:outline-none focus:border-amber-500/50 focus:bg-white/[0.08] transition-all placeholder:text-muted/50 resize-none min-h-[48px] max-h-[120px]"
-                  autoFocus
-                  disabled={isTyping}
-                  rows={1}
-                />
-                <button
-                  type="submit"
-                  disabled={!chatInput.trim() || isTyping}
-                  className="bg-gradient-to-r from-amber-500 to-orange-500 hover:from-amber-400 hover:to-orange-400 disabled:opacity-50 disabled:cursor-not-allowed text-background px-5 rounded-xl transition-all shadow-lg shadow-amber-500/25 flex items-center justify-center self-end h-[48px]"
-                >
-                  <svg className="w-5 h-5" fill="none" stroke="currentColor" viewBox="0 0 24 24">
-                    <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 19l9 2-9-18-9 18 9-2zm0 0v-8" />
-                  </svg>
-                </button>
-              </div>
-            </form>
-          )}
-        </div>
-      )}
     </main>
   );
 }
