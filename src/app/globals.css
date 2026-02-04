@@ -122,3 +122,16 @@ body::before {
     @apply border-border;
   }
 }
+
+/* Team marquee auto-scroll */
+@keyframes marquee-scroll {
+  0% { transform: translateX(0); }
+  100% { transform: translateX(-50%); }
+}
+
+@utility animate-marquee {
+  animation: marquee-scroll 25s linear infinite;
+  &:hover {
+    animation-play-state: paused;
+  }
+}

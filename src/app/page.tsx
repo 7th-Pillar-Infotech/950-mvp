@@ -35,58 +35,22 @@ const DISPOSABLE_EMAIL_DOMAINS = [
 
 const PROJECTS = [
   {
-    name: "Ownsy",
-    description: "Fractional real estate investment platform with tokenized property ownership",
-    category: "Proptech",
-    url: "https://ownsy.netlify.app/",
-    screenshot: "/screenshots/ownsy.jpg",
-    color: "from-emerald-500/20 to-teal-500/20",
-    borderColor: "border-emerald-500/30",
-  },
-  {
-    name: "FurnishVision",
-    description: "AI-powered home decor e-commerce with room visualization",
-    category: "E-commerce",
-    url: "https://furnishvision.netlify.app/",
-    screenshot: "/screenshots/furnishvision.jpg",
-    color: "from-amber-500/20 to-orange-500/20",
-    borderColor: "border-amber-500/30",
-  },
-  {
-    name: "Villiers",
-    description: "Private jet charter marketplace with instant booking",
-    category: "Luxury Travel",
-    url: "https://villiers-redesign.netlify.app/",
-    screenshot: "/screenshots/villiers.jpg",
+    name: "BookingOps",
+    description: "AI-powered operations platform for service businesses — scheduling, dispatch, payments, and customer management in one system with AI route optimization and voice agents.",
+    category: "SaaS",
+    url: "https://bookingops.buildmatic.ai",
+    video: "https://db-bookingops.buildmatic.ai/storage/v1/object/public/feature_videos/BookingOpsDemo-preview.mp4",
     color: "from-blue-500/20 to-indigo-500/20",
     borderColor: "border-blue-500/30",
   },
   {
-    name: "Melodist",
-    description: "Music distribution platform for independent artists",
-    category: "Music Tech",
-    url: "https://upwork-music-distribution-platform.vercel.app/",
-    screenshot: "/screenshots/melodist.jpg",
+    name: "AI-CRM",
+    description: "Intelligent sales automation that discovers leads from social conversations, generates personalized outreach across email and LinkedIn, and accelerates the entire sales pipeline with AI.",
+    category: "Sales Automation",
+    url: "https://ai-crm.buildmatic.ai",
+    video: "https://ai-crm.buildmatic.ai/videos/previews/ai_crm_explainer_preview.mp4",
     color: "from-violet-500/20 to-purple-500/20",
     borderColor: "border-violet-500/30",
-  },
-  {
-    name: "Mod Society",
-    description: "Live music gig management for musicians and venues",
-    category: "Event Management",
-    url: "https://mod-society-mock.vercel.app/admin/dashboard",
-    screenshot: "/screenshots/modsociety.jpg",
-    color: "from-pink-500/20 to-rose-500/20",
-    borderColor: "border-pink-500/30",
-  },
-  {
-    name: "yd.io",
-    description: "Creator economy platform for digital artists",
-    category: "Creator Economy",
-    url: "https://yd-io.vercel.app/",
-    screenshot: "/screenshots/ydio.jpg",
-    color: "from-cyan-500/20 to-teal-500/20",
-    borderColor: "border-cyan-500/30",
   },
 ];
 
@@ -256,12 +220,14 @@ export default function MVPPage() {
 
           {/* Navigation */}
           <nav className="hidden md:flex items-center gap-8">
-            <a
-              href="/free-prototype"
-              className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2"
-            >
-              <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-emerald-500/20 border border-emerald-500/30 rounded">Free</span>
-              Get a Prototype
+            <a href="#portfolio" className="text-sm text-muted hover:text-foreground transition-colors">
+              Portfolio
+            </a>
+            <a href="#how-it-works" className="text-sm text-muted hover:text-foreground transition-colors">
+              How It Works
+            </a>
+            <a href="#team" className="text-sm text-muted hover:text-foreground transition-colors">
+              Team
             </a>
             <a
               href="https://7thpillar.com"
@@ -300,13 +266,14 @@ export default function MVPPage() {
         {mobileMenuOpen && (
           <div className="md:hidden border-t border-white/10 bg-background/95 backdrop-blur-md">
             <nav className="flex flex-col p-4 space-y-4">
-              <a
-                href="/free-prototype"
-                className="text-sm font-medium text-emerald-400 hover:text-emerald-300 transition-colors flex items-center gap-2 py-2"
-                onClick={() => setMobileMenuOpen(false)}
-              >
-                <span className="px-1.5 py-0.5 text-[10px] font-bold uppercase bg-emerald-500/20 border border-emerald-500/30 rounded">Free</span>
-                Get a Prototype
+              <a href="#portfolio" className="text-sm text-muted hover:text-foreground transition-colors py-2" onClick={() => setMobileMenuOpen(false)}>
+                Portfolio
+              </a>
+              <a href="#how-it-works" className="text-sm text-muted hover:text-foreground transition-colors py-2" onClick={() => setMobileMenuOpen(false)}>
+                How It Works
+              </a>
+              <a href="#team" className="text-sm text-muted hover:text-foreground transition-colors py-2" onClick={() => setMobileMenuOpen(false)}>
+                Team
               </a>
               <a
                 href="https://7thpillar.com"
@@ -484,7 +451,7 @@ export default function MVPPage() {
       </section>
 
       {/* Portfolio Section */}
-      <section className="relative px-6 py-32 overflow-hidden">
+      <section id="portfolio" className="relative px-6 py-20 overflow-hidden">
         <div className="absolute top-0 left-1/2 -translate-x-1/2 w-full max-w-4xl h-px bg-gradient-to-r from-transparent via-amber-500/50 to-transparent" />
 
         <div className="max-w-6xl mx-auto">
@@ -500,20 +467,30 @@ export default function MVPPage() {
             </h2>
           </div>
 
-          <div className="grid md:grid-cols-2 lg:grid-cols-3 gap-6">
+          <div className="grid md:grid-cols-2 gap-6">
             {PROJECTS.map((project, i) => (
               <div
                 key={i}
                 onClick={() => setSelectedProject(i)}
                 className={`group relative bg-gradient-to-br ${project.color} border ${project.borderColor} rounded-2xl overflow-hidden hover:scale-[1.02] transition-all duration-300 cursor-pointer`}
               >
-                <div className="aspect-video bg-black/20 border-b border-white/10 overflow-hidden">
-                  <img
-                    src={project.screenshot}
-                    alt={project.name}
-                    className="w-full h-full object-cover object-top group-hover:scale-105 transition-transform duration-500"
-                    loading="lazy"
+                <div className="aspect-video bg-black/20 border-b border-white/10 overflow-hidden relative">
+                  <video
+                    src={project.video}
+                    muted
+                    loop
+                    playsInline
+                    className="w-full h-full object-cover object-top"
+                    onMouseEnter={(e) => e.currentTarget.play()}
+                    onMouseLeave={(e) => { e.currentTarget.pause(); e.currentTarget.currentTime = 0; }}
                   />
+                  <div className="absolute inset-0 flex items-center justify-center bg-black/20 opacity-100 group-hover:opacity-0 transition-opacity pointer-events-none">
+                    <div className="w-14 h-14 flex items-center justify-center bg-white/20 backdrop-blur-sm rounded-full border border-white/30">
+                      <svg className="w-6 h-6 text-white ml-1" fill="currentColor" viewBox="0 0 24 24">
+                        <path d="M8 5v14l11-7z" />
+                      </svg>
+                    </div>
+                  </div>
                 </div>
                 <div className="p-5">
                   <div className="flex items-start justify-between mb-3">
@@ -571,11 +548,15 @@ export default function MVPPage() {
               </svg>
             </button>
 
-            {/* Screenshot */}
+            {/* Video */}
             <div className="aspect-video bg-black/30 overflow-hidden rounded-t-2xl">
-              <img
-                src={PROJECTS[selectedProject].screenshot}
-                alt={PROJECTS[selectedProject].name}
+              <video
+                src={PROJECTS[selectedProject].video}
+                autoPlay
+                muted
+                loop
+                playsInline
+                controls
                 className="w-full h-full object-cover object-top"
               />
             </div>
@@ -629,7 +610,7 @@ export default function MVPPage() {
       )}
 
       {/* Credibility Section */}
-      <section className="relative px-6 py-32 bg-gradient-to-b from-background to-amber-950/10">
+      <section id="team" className="relative px-6 py-20 bg-gradient-to-b from-background to-amber-950/10">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
@@ -666,34 +647,40 @@ export default function MVPPage() {
             ))}
           </div>
 
-          {/* Team members */}
-          <div className="flex flex-wrap justify-center gap-6 md:gap-8 mb-12">
-            {[
-              { name: "Rashin", role: "CEO & AI Architect", photo: "/team/rashin.png" },
-              { name: "Sarath", role: "AI Agents Engineer", photo: "/team/sarath.png" },
-              { name: "Smartin", role: "AI App Development", photo: "/team/smartin.png" },
-              { name: "Kishan", role: "Voice Agents", photo: "/team/kishan.png" },
-              { name: "Abhiram", role: "Full Stack AI Dev", photo: "/team/abhiram.png" },
-              { name: "Abin", role: "Backend & AI Infra", photo: "/team/abin.png" },
-              { name: "Akbar", role: "AI DevOps", photo: "/team/akbar.png" },
-              { name: "Areeb", role: "AI UX Engineer", photo: "/team/areeb.png" },
-              { name: "Ritto", role: "AI Data Engineer", photo: "/team/ritto.png" },
-              { name: "Sarang", role: "Mobile AI Dev", photo: "/team/sarang.png" },
-              { name: "Suma", role: "Product Strategist", photo: "/team/suma.png" },
-            ].map((member, i) => (
-              <div key={i} className="flex flex-col items-center gap-2">
-                <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-lg">
-                  <img
-                    src={member.photo}
-                    alt={member.name}
-                    className="w-full h-full object-cover"
-                    loading="lazy"
-                  />
-                </div>
-                <div className="text-sm font-medium">{member.name}</div>
-                <div className="text-xs text-muted">{member.role}</div>
-              </div>
-            ))}
+          {/* Team members - auto-scrolling marquee */}
+          <div className="relative overflow-hidden mb-12">
+            <div className="absolute left-0 top-0 bottom-0 w-16 bg-gradient-to-r from-background to-transparent z-10 pointer-events-none" />
+            <div className="absolute right-0 top-0 bottom-0 w-16 bg-gradient-to-l from-background to-transparent z-10 pointer-events-none" />
+            <div className="animate-marquee flex gap-8 w-max">
+              {[...Array(2)].map((_, setIndex) =>
+                [
+                  { name: "Rashin", role: "CEO & AI Architect", photo: "/team/rashin.png" },
+                  { name: "Sarath", role: "AI Agents Engineer", photo: "/team/sarath.png" },
+                  { name: "Smartin", role: "AI App Development", photo: "/team/smartin.png" },
+                  { name: "Kishan", role: "Voice Agents", photo: "/team/kishan.png" },
+                  { name: "Abhiram", role: "Full Stack AI Dev", photo: "/team/abhiram.png" },
+                  { name: "Abin", role: "Backend & AI Infra", photo: "/team/abin.png" },
+                  { name: "Akbar", role: "AI DevOps", photo: "/team/akbar.png" },
+                  { name: "Areeb", role: "AI UX Engineer", photo: "/team/areeb.png" },
+                  { name: "Ritto", role: "AI Data Engineer", photo: "/team/ritto.png" },
+                  { name: "Sarang", role: "Mobile AI Dev", photo: "/team/sarang.png" },
+                  { name: "Suma", role: "Product Strategist", photo: "/team/suma.png" },
+                ].map((member, i) => (
+                  <div key={`${setIndex}-${i}`} className="flex flex-col items-center gap-2 flex-shrink-0">
+                    <div className="w-16 h-16 rounded-full overflow-hidden border-2 border-white/10 shadow-lg">
+                      <img
+                        src={member.photo}
+                        alt={member.name}
+                        className="w-full h-full object-cover"
+                        loading="lazy"
+                      />
+                    </div>
+                    <div className="text-sm font-medium">{member.name}</div>
+                    <div className="text-xs text-muted">{member.role}</div>
+                  </div>
+                ))
+              )}
+            </div>
           </div>
 
           <div className="text-center">
@@ -713,7 +700,7 @@ export default function MVPPage() {
       </section>
 
       {/* The Problem Section */}
-      <section className="relative px-6 py-32 bg-gradient-to-b from-amber-950/10 to-background">
+      <section className="relative px-6 py-20 bg-gradient-to-b from-amber-950/10 to-background">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
@@ -787,7 +774,7 @@ export default function MVPPage() {
       </section>
 
       {/* What You Get Section */}
-      <section className="relative px-6 py-32 overflow-hidden">
+      <section className="relative px-6 py-20 overflow-hidden">
         <div className="max-w-6xl mx-auto">
           <div className="text-center mb-20">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
@@ -875,7 +862,7 @@ export default function MVPPage() {
       </section>
 
       {/* How It Works Section */}
-      <section className="relative px-6 py-32 border-t border-white/10">
+      <section id="how-it-works" className="relative px-6 py-20 border-t border-white/10">
         <div className="max-w-4xl mx-auto">
           <div className="text-center mb-20">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
@@ -931,7 +918,7 @@ export default function MVPPage() {
       </section>
 
       {/* Side Projects Section */}
-      <section className="relative px-6 py-32 border-t border-white/10">
+      <section className="relative px-6 py-20 border-t border-white/10">
         <div className="max-w-5xl mx-auto">
           <div className="text-center mb-16">
             <span className="inline-block px-4 py-1.5 mb-6 text-xs font-medium uppercase tracking-widest text-amber-500 bg-amber-500/10 rounded-full">
@@ -1029,7 +1016,7 @@ export default function MVPPage() {
       </section>
 
       {/* Testimonial + Scale Teaser */}
-      <section className="relative px-6 py-32 bg-gradient-to-b from-amber-950/10 to-background">
+      <section className="relative px-6 py-20 bg-gradient-to-b from-amber-950/10 to-background">
         <div className="max-w-6xl mx-auto">
           {/* Testimonials */}
           <div className="text-center mb-16">
@@ -1141,7 +1128,7 @@ export default function MVPPage() {
       </section>
 
       {/* Lead Form Section */}
-      <section ref={formSectionRef} id="get-started" className="relative px-6 py-32">
+      <section ref={formSectionRef} id="get-started" className="relative px-6 py-20">
         {/* Background glow */}
         <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[600px] h-[600px] bg-amber-500/10 rounded-full blur-3xl pointer-events-none" />
 
@@ -1307,7 +1294,7 @@ export default function MVPPage() {
                   </>
                 ) : (
                   <>
-                    <span>Get Started — $950</span>
+                    <span>Submit Idea</span>
                     <svg className="w-5 h-5 transition-transform group-hover:translate-x-1" fill="none" stroke="currentColor" viewBox="0 0 24 24">
                       <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M17 8l4 4m0 0l-4 4m4-4H3" />
                     </svg>
